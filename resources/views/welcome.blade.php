@@ -194,7 +194,7 @@
             background:
                 linear-gradient(180deg, rgba(2,10,18,.30), rgba(2,10,18,.58)),
                 linear-gradient(90deg, rgba(2,10,18,.34), rgba(2,10,18,.18)),
-                url('{{ asset('images/cover.jpg') }}') center center / cover no-repeat;
+                url('{{ asset('image/cover.jpg') }}') center center / cover no-repeat;
         }
 
         .hero::before{
