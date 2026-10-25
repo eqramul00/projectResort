@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -29,6 +30,16 @@ class User extends Authenticatable
         ];
     }
 
+    public function guest(): HasOne
+    {
+        return $this->hasOne(Guest::class);
+    }
+
+    public function isGuest(): bool
+    {
+        return $this->role === 'guest';
+    }
+
     public function hasRole(string $role): bool
     {
         return $this->role === $role;
@@ -41,11 +52,18 @@ class User extends Authenticatable
 
     public function canViewBookings(): bool
     {
-        return $this->hasAnyRole(['admin', 'manager', 'reception']);
+        return $this->hasAnyRole([
+            'admin',
+            'manager',
+            'reception',
+        ]);
     }
 
     public function canManageBookings(): bool
     {
-        return $this->hasAnyRole(['admin', 'manager']);
+        return $this->hasAnyRole([
+            'admin',
+            'manager',
+        ]);
     }
 }

@@ -6,212 +6,131 @@ use App\Models\Booking;
 use App\Models\Expense;
 use App\Models\Room;
 use Carbon\Carbon;
+use DateTimeInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use LogicException;
+use Throwable;
 
 class FinanceController extends Controller
 {
-    private array $validStatuses = ['confirmed', 'checked_in', 'checked_out'];
+    private array $validStatuses = [
+        'confirmed',
+        'checked_in',
+        'checked_out',
+    ];
 
     public function index(Request $request): View
     {
-        // ✅ FIXED (no deprecated warning)
-        $filter = $request->input('range', 'this_month');
+        $validated = $request->validate([
+            'range' => [
+                'sometimes',
+                'string',
+                'in:today,this_week,this_month,this_year',
+            ],
+        ]);
 
-        [$startDate, $endDate, $previousStartDate, $previousEndDate] = $this->getDateRange($filter);
+        $filter = $validated['range'] ?? 'this_month';
 
-        /*
-        |--------------------------------------------------------------------------
-        | BOOKINGS
-        |--------------------------------------------------------------------------
-        */
+        [
+            $startDate,
+            $endDate,
+            $previousStartDate,
+            $previousEndDate,
+        ] = $this->getDateRange($filter);
 
-        $allBookings = Booking::with(['room', 'guest'])
-            ->whereIn('status', $this->validStatuses)
-            ->get();
+        $allBookings = $this->fetchBookings();
 
-        $filteredBookings = Booking::with(['room', 'guest'])
-            ->whereIn('status', $this->validStatuses)
-            ->whereDate('check_in', '>=', $startDate)
-            ->whereDate('check_in', '<=', $endDate)
-            ->get()
-            ->map(function (Booking $booking) {
-                $booking->nights = $this->calculateNights($booking->check_in, $booking->check_out);
-                $booking->calculated_revenue = $this->calculateBookingRevenue($booking);
-                return $booking;
-            });
+        $filteredBookings = $this->fetchBookings(
+            $startDate,
+            $endDate
+        );
 
-        $previousBookings = Booking::with('room')
-            ->whereIn('status', $this->validStatuses)
-            ->whereDate('check_in', '>=', $previousStartDate)
-            ->whereDate('check_in', '<=', $previousEndDate)
-            ->get();
+        $previousBookings = $this->fetchBookings(
+            $previousStartDate,
+            $previousEndDate
+        );
 
-        /*
-        |--------------------------------------------------------------------------
-        | REVENUE
-        |--------------------------------------------------------------------------
-        */
+        $excludedBookingCount = $this->excludedCount($allBookings);
+
+        $rangeExcludedBookingCount = $this->excludedCount(
+            $filteredBookings
+        );
 
         $totalRevenue = $this->calculateRevenue($allBookings);
-        $rangeRevenue = $filteredBookings->sum('calculated_revenue');
+        $rangeRevenue = $this->calculateRevenue($filteredBookings);
         $previousRevenue = $this->calculateRevenue($previousBookings);
 
-        /*
-        |--------------------------------------------------------------------------
-        | EXPENSES
-        |--------------------------------------------------------------------------
-        */
+        $totalExpenses = (float) Expense::sum('amount');
 
-        $totalExpenses = Expense::sum('amount');
+        $rangeExpenses = $this->expenseTotal(
+            $startDate,
+            $endDate
+        );
 
-        $rangeExpenses = Expense::whereDate('expense_date', '>=', $startDate)
-            ->whereDate('expense_date', '<=', $endDate)
-            ->sum('amount');
+        $previousExpenses = $this->expenseTotal(
+            $previousStartDate,
+            $previousEndDate
+        );
 
-        $previousExpenses = Expense::whereDate('expense_date', '>=', $previousStartDate)
-            ->whereDate('expense_date', '<=', $previousEndDate)
-            ->sum('amount');
+        $netProfit = round($totalRevenue - $totalExpenses, 2);
+        $rangeProfit = round($rangeRevenue - $rangeExpenses, 2);
 
-        /*
-        |--------------------------------------------------------------------------
-        | PROFIT
-        |--------------------------------------------------------------------------
-        */
+        $previousProfit = round(
+            $previousRevenue - $previousExpenses,
+            2
+        );
 
-        $netProfit = $totalRevenue - $totalExpenses;
-        $rangeProfit = $rangeRevenue - $rangeExpenses;
-        $previousProfit = $previousRevenue - $previousExpenses;
+        $revenueGrowth = $this->calculateGrowth(
+            $rangeRevenue,
+            $previousRevenue
+        );
 
-        /*
-        |--------------------------------------------------------------------------
-        | GROWTH
-        |--------------------------------------------------------------------------
-        */
+        $expenseGrowth = $this->calculateGrowth(
+            $rangeExpenses,
+            $previousExpenses
+        );
 
-        $revenueGrowth = $this->calculateGrowth($rangeRevenue, $previousRevenue);
-        $expenseGrowth = $this->calculateGrowth($rangeExpenses, $previousExpenses);
-        $profitGrowth = $this->calculateGrowth($rangeProfit, $previousProfit);
-
-        /*
-        |--------------------------------------------------------------------------
-        | RECENT DATA
-        |--------------------------------------------------------------------------
-        */
+        $profitGrowth = $this->calculateGrowth(
+            $rangeProfit,
+            $previousProfit
+        );
 
         $recentExpenses = Expense::latest('expense_date')
             ->take(8)
             ->get();
 
-        $recentRevenueBookings = Booking::with(['room', 'guest'])
-            ->whereIn('status', $this->validStatuses)
-            ->latest('created_at')
-            ->take(8)
-            ->get()
-            ->map(function (Booking $booking) {
-                $booking->nights = $this->calculateNights($booking->check_in, $booking->check_out);
-                $booking->calculated_revenue = $this->calculateBookingRevenue($booking);
-                return $booking;
-            });
-
-        /*
-        |--------------------------------------------------------------------------
-        | KPIs
-        |--------------------------------------------------------------------------
-        */
+        $recentRevenueBookings = $this->fetchBookings(
+            null,
+            null,
+            true
+        );
 
         $totalBookings = $filteredBookings->count();
 
-        $averageBookingValue = $totalBookings > 0
-            ? $rangeRevenue / $totalBookings
-            : 0;
+        $pricedBookings = $this->pricedBookings($filteredBookings);
 
-        $averageStayLength = $totalBookings > 0
-            ? $filteredBookings->avg('nights')
-            : 0;
+        $averageBookingValue = $pricedBookings->isNotEmpty()
+            ? round($rangeRevenue / $pricedBookings->count(), 2)
+            : 0.0;
 
-        /*
-        |--------------------------------------------------------------------------
-        | OCCUPANCY
-        |--------------------------------------------------------------------------
-        */
+        $averageStayLength = $this->averageStayLength(
+            $filteredBookings
+        );
 
-        $occupiedRoomIds = Booking::whereIn('status', ['confirmed', 'checked_in'])
-            ->whereDate('check_in', '<=', now())
-            ->whereDate('check_out', '>=', now())
-            ->pluck('room_id')
-            ->filter()
-            ->unique();
+        $occupancyRate = $this->occupancyRate();
 
-        $totalRooms = Room::count();
-        $occupiedRooms = $occupiedRoomIds->count();
+        $topRevenueRooms = $this->topRooms($pricedBookings);
 
-        $occupancyRate = $totalRooms > 0
-            ? ($occupiedRooms / $totalRooms) * 100
-            : 0;
+        $expenseByCategory = $this->expenseCategories(
+            $startDate,
+            $endDate
+        );
 
-        /*
-        |--------------------------------------------------------------------------
-        | TOP ROOMS
-        |--------------------------------------------------------------------------
-        */
-
-        $topRevenueRooms = $filteredBookings
-            ->groupBy('room_id')
-            ->map(function ($bookings) {
-                $room = optional($bookings->first()->room);
-
-                return [
-                    'room_number' => $room->number ?? 'N/A',
-                    'revenue' => $bookings->sum('calculated_revenue'),
-                    'bookings' => $bookings->count(),
-                ];
-            })
-            ->sortByDesc('revenue')
-            ->take(5)
-            ->values();
-
-        /*
-        |--------------------------------------------------------------------------
-        | EXPENSE CATEGORY
-        |--------------------------------------------------------------------------
-        */
-
-        $expenseByCategory = Expense::select('category', DB::raw('SUM(amount) as total'))
-            ->whereDate('expense_date', '>=', $startDate)
-            ->whereDate('expense_date', '<=', $endDate)
-            ->groupBy('category')
-            ->orderByDesc('total')
-            ->get();
-
-        /*
-        |--------------------------------------------------------------------------
-        | CHART DATA
-        |--------------------------------------------------------------------------
-        */
-
-        $monthlyChartData = collect(range(1, 12))->map(function ($month) {
-            $bookings = Booking::with('room')
-                ->whereIn('status', $this->validStatuses)
-                ->whereMonth('check_in', $month)
-                ->whereYear('check_in', now()->year)
-                ->get();
-
-            return [
-                'month' => Carbon::create()->month($month)->format('M'),
-                'revenue' => $this->calculateRevenue($bookings),
-                'expenses' => Expense::whereMonth('expense_date', $month)
-                    ->whereYear('expense_date', now()->year)
-                    ->sum('amount'),
-            ];
-        });
-
-        /*
-        |--------------------------------------------------------------------------
-        | RETURN VIEW
-        |--------------------------------------------------------------------------
-        */
+        $monthlyChartData = $this->monthlyChart();
 
         return view('finance.index', compact(
             'filter',
@@ -234,37 +153,297 @@ class FinanceController extends Controller
             'occupancyRate',
             'topRevenueRooms',
             'expenseByCategory',
-            'monthlyChartData'
+            'monthlyChartData',
+            'excludedBookingCount',
+            'rangeExcludedBookingCount'
         ));
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | HELPERS
-    |--------------------------------------------------------------------------
-    */
+    /** @return Collection<int, Booking> */
+    private function fetchBookings(
+        ?string $start = null,
+        ?string $end = null,
+        bool $recent = false
+    ): Collection {
+        /** @var Builder<Booking> $query */
+        $query = Booking::query();
 
-    private function calculateRevenue($bookings): float
+        $query->with(['room', 'guest'])
+            ->whereIn('status', $this->validStatuses);
+
+        if ($start !== null) {
+            $query->whereDate('check_in', '>=', $start);
+        }
+
+        if ($end !== null) {
+            $query->whereDate('check_in', '<=', $end);
+        }
+
+        if ($recent) {
+            $query->latest('created_at')->take(8);
+        }
+
+        /** @var Collection<int, Booking> $bookings */
+        $bookings = new Collection();
+
+        foreach ($query->get() as $record) {
+            if (!$record instanceof Booking) {
+                throw new LogicException(
+                    'The finance query must return Booking models.'
+                );
+            }
+
+            $bookings->push($this->prepareBooking($record));
+        }
+
+        return $bookings;
+    }
+
+    private function prepareBooking(Booking $booking): Booking
     {
-        return (float) $bookings->sum(fn ($booking) => $this->calculateBookingRevenue($booking));
+        $booking->setAttribute(
+            'nights',
+            $this->calculateNights(
+                $booking->check_in,
+                $booking->check_out
+            )
+        );
+
+        $booking->setAttribute(
+            'calculated_revenue',
+            $this->hasUsableRateAndDates($booking)
+                ? $this->calculateBookingRevenue($booking)
+                : null
+        );
+
+        return $booking;
+    }
+
+    private function hasUsableRateAndDates(Booking $booking): bool
+    {
+        return $booking->agreed_rate !== null
+            && is_numeric($booking->agreed_rate)
+            && (float) $booking->agreed_rate >= 0
+            && $this->calculateNights(
+                $booking->check_in,
+                $booking->check_out
+            ) > 0;
+    }
+
+    /** @param Collection<int, Booking> $bookings */
+    private function excludedCount(Collection $bookings): int
+    {
+        $count = 0;
+
+        foreach ($bookings as $booking) {
+            if (!$this->hasUsableRateAndDates($booking)) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * @param Collection<int, Booking> $bookings
+     * @return Collection<int, Booking>
+     */
+    private function pricedBookings(Collection $bookings): Collection
+    {
+        return $bookings->filter(
+            fn (Booking $booking): bool =>
+                $this->hasUsableRateAndDates($booking)
+        );
+    }
+
+    /** @param Collection<int, Booking> $bookings */
+    private function calculateRevenue(Collection $bookings): float
+    {
+        $totalMinor = 0;
+
+        foreach ($bookings as $booking) {
+            if (!$this->hasUsableRateAndDates($booking)) {
+                continue;
+            }
+
+            $rateMinor = (int) round(
+                (float) $booking->agreed_rate * 100
+            );
+
+            $nights = $this->calculateNights(
+                $booking->check_in,
+                $booking->check_out
+            );
+
+            $totalMinor += $rateMinor * $nights;
+        }
+
+        return $totalMinor / 100;
     }
 
     private function calculateBookingRevenue(Booking $booking): float
     {
-        if (!$booking->room) {
+        if (!$this->hasUsableRateAndDates($booking)) {
+            return 0.0;
+        }
+
+        $rateMinor = (int) round(
+            (float) $booking->agreed_rate * 100
+        );
+
+        $nights = $this->calculateNights(
+            $booking->check_in,
+            $booking->check_out
+        );
+
+        return ($rateMinor * $nights) / 100;
+    }
+
+    private function calculateNights(
+        string|DateTimeInterface|null $checkInDate,
+        string|DateTimeInterface|null $checkOutDate
+    ): int {
+        if (!$checkInDate || !$checkOutDate) {
             return 0;
         }
 
-        return (float) ($this->calculateNights($booking->check_in, $booking->check_out) * $booking->room->price);
+        try {
+            $checkIn = Carbon::parse($checkInDate)->startOfDay();
+            $checkOut = Carbon::parse($checkOutDate)->startOfDay();
+
+            if (!$checkOut->greaterThan($checkIn)) {
+                return 0;
+            }
+
+            return (int) $checkIn->diffInDays($checkOut);
+        } catch (Throwable $exception) {
+            return 0;
+        }
     }
 
-    private function calculateNights($checkInDate, $checkOutDate): int
+    /** @param Collection<int, Booking> $bookings */
+    private function averageStayLength(Collection $bookings): float
     {
-        return max(1, Carbon::parse($checkInDate)->diffInDays(Carbon::parse($checkOutDate)));
+        $nights = 0;
+        $count = 0;
+
+        foreach ($bookings as $booking) {
+            $stay = $this->calculateNights(
+                $booking->check_in,
+                $booking->check_out
+            );
+
+            if ($stay > 0) {
+                $nights += $stay;
+                $count++;
+            }
+        }
+
+        return $count > 0 ? $nights / $count : 0.0;
     }
 
-    private function calculateGrowth(float $current, float $previous): float
+    private function expenseTotal(string $start, string $end): float
     {
+        return (float) Expense::whereDate(
+            'expense_date',
+            '>=',
+            $start
+        )
+            ->whereDate('expense_date', '<=', $end)
+            ->sum('amount');
+    }
+
+    private function occupancyRate(): float
+    {
+        $today = Carbon::now()->toDateString();
+
+        $occupied = Booking::whereIn(
+            'status',
+            ['confirmed', 'checked_in']
+        )
+            ->whereDate('check_in', '<=', $today)
+            ->whereDate('check_out', '>', $today)
+            ->pluck('room_id')
+            ->filter()
+            ->unique()
+            ->count();
+
+        $total = Room::count();
+
+        return $total > 0 ? ($occupied / $total) * 100 : 0.0;
+    }
+
+    /**
+     * @param Collection<int, Booking> $bookings
+     * @return Collection<int, array{room_number: mixed, revenue: float, bookings: int}>
+     */
+    private function topRooms(Collection $bookings): Collection
+    {
+        $rows = [];
+
+        foreach ($bookings->groupBy('room_id') as $group) {
+            $first = $group->first();
+
+            $rows[] = [
+                'room_number' => $first?->room?->number ?? 'N/A',
+                'revenue' => $this->calculateRevenue($group),
+                'bookings' => $group->count(),
+            ];
+        }
+
+        return collect($rows)
+            ->sortByDesc('revenue')
+            ->take(5)
+            ->values();
+    }
+
+    private function expenseCategories(
+        string $start,
+        string $end
+    ): Collection {
+        return Expense::select(
+            'category',
+            DB::raw('SUM(amount) as total')
+        )
+            ->whereDate('expense_date', '>=', $start)
+            ->whereDate('expense_date', '<=', $end)
+            ->groupBy('category')
+            ->orderByDesc('total')
+            ->get();
+    }
+
+    private function monthlyChart(): Collection
+    {
+        $year = Carbon::now()->year;
+        $rows = [];
+
+        for ($month = 1; $month <= 12; $month++) {
+            $date = Carbon::create($year, $month, 1);
+
+            $start = $date->copy()
+                ->startOfMonth()
+                ->toDateString();
+
+            $end = $date->copy()
+                ->endOfMonth()
+                ->toDateString();
+
+            $rows[] = [
+                'month' => $date->format('M'),
+                'revenue' => $this->calculateRevenue(
+                    $this->fetchBookings($start, $end)
+                ),
+                'expenses' => $this->expenseTotal($start, $end),
+            ];
+        }
+
+        return collect($rows);
+    }
+
+    private function calculateGrowth(
+        float $current,
+        float $previous
+    ): float {
         if ($previous == 0.0) {
             return $current > 0 ? 100.0 : 0.0;
         }
@@ -272,36 +451,42 @@ class FinanceController extends Controller
         return (($current - $previous) / $previous) * 100;
     }
 
+    /** @return array{string, string, string, string} */
     private function getDateRange(string $filter): array
     {
+        $now = Carbon::now();
+
         switch ($filter) {
             case 'today':
-                $start = now()->startOfDay();
-                $end = now()->endOfDay();
-                $previousStart = now()->copy()->subDay()->startOfDay();
-                $previousEnd = now()->copy()->subDay()->endOfDay();
+                $start = $now->copy()->startOfDay();
+                $end = $now->copy()->endOfDay();
+
+                $previousStart = $start->copy()->subDay();
+                $previousEnd = $previousStart->copy()->endOfDay();
                 break;
 
             case 'this_week':
-                $start = now()->startOfWeek();
-                $end = now()->endOfWeek();
-                $previousStart = now()->copy()->subWeek()->startOfWeek();
-                $previousEnd = now()->copy()->subWeek()->endOfWeek();
+                $start = $now->copy()->startOfWeek();
+                $end = $now->copy()->endOfWeek();
+
+                $previousStart = $start->copy()->subWeek();
+                $previousEnd = $previousStart->copy()->endOfWeek();
                 break;
 
             case 'this_year':
-                $start = now()->startOfYear();
-                $end = now()->endOfYear();
-                $previousStart = now()->copy()->subYear()->startOfYear();
-                $previousEnd = now()->copy()->subYear()->endOfYear();
+                $start = $now->copy()->startOfYear();
+                $end = $now->copy()->endOfYear();
+
+                $previousStart = $start->copy()->subYear();
+                $previousEnd = $previousStart->copy()->endOfYear();
                 break;
 
-            case 'this_month':
             default:
-                $start = now()->startOfMonth();
-                $end = now()->endOfMonth();
-                $previousStart = now()->copy()->subMonth()->startOfMonth();
-                $previousEnd = now()->copy()->subMonth()->endOfMonth();
+                $start = $now->copy()->startOfMonth();
+                $end = $now->copy()->endOfMonth();
+
+                $previousStart = $start->copy()->subMonth();
+                $previousEnd = $previousStart->copy()->endOfMonth();
                 break;
         }
 

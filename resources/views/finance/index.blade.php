@@ -35,7 +35,7 @@
             background: #ffffff;
             border-radius: 24px;
             padding: 26px;
-            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+            box-shadow: 0 10px 30px rgba(15,23,42,.06);
             border: 1px solid #e5e7eb;
         }
 
@@ -55,7 +55,7 @@
             border-radius: 999px;
             background: #dbeafe;
             color: #0c5a8d;
-            letter-spacing: 0.3px;
+            letter-spacing: .3px;
             margin-bottom: 12px;
         }
 
@@ -71,6 +71,7 @@
             margin: 0;
             color: #64748b;
             font-size: 15px;
+            line-height: 1.6;
         }
 
         .finance-dashboard .filter-form {
@@ -82,8 +83,7 @@
             padding: 12px 16px;
             border-radius: 14px;
             border: 1px solid #dbe2ea;
-            background: #fff;
-            outline: none;
+            background: #ffffff;
             font-size: 14px;
             font-weight: 700;
             color: #0f172a;
@@ -93,8 +93,8 @@
         .finance-dashboard .stats-card {
             border-radius: 24px;
             padding: 26px 24px;
-            color: #fff;
-            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+            color: #ffffff;
+            box-shadow: 0 10px 28px rgba(15,23,42,.08);
         }
 
         .finance-dashboard .stats-card h4 {
@@ -108,22 +108,14 @@
             font-size: 34px;
             line-height: 1.15;
             font-weight: 900;
-            letter-spacing: -0.5px;
+            letter-spacing: -.5px;
+            overflow-wrap: anywhere;
         }
 
         .finance-dashboard .stats-card .trend {
             margin-top: 16px;
             font-size: 14px;
-            font-weight: 700;
-            opacity: 0.98;
-        }
-
-        .finance-dashboard .trend.up {
-            color: #dcfce7;
-        }
-
-        .finance-dashboard .trend.down {
-            color: #fee2e2;
+            line-height: 1.5;
         }
 
         .finance-dashboard .bg-teal {
@@ -136,10 +128,6 @@
 
         .finance-dashboard .bg-blue {
             background: linear-gradient(135deg, #2f5fe3, #5c96ef);
-        }
-
-        .finance-dashboard .bg-purple {
-            background: linear-gradient(135deg, #7a3fe3, #a385f4);
         }
 
         .finance-dashboard .bg-red {
@@ -165,6 +153,14 @@
             font-size: 28px;
             font-weight: 900;
             color: #0f172a;
+            overflow-wrap: anywhere;
+        }
+
+        .finance-dashboard .mini-stat small {
+            display: block;
+            margin-top: 8px;
+            color: #64748b;
+            line-height: 1.5;
         }
 
         .finance-dashboard .actions {
@@ -183,17 +179,17 @@
             font-size: 15px;
             font-weight: 800;
             text-decoration: none;
-            transition: all 0.2s ease;
+            transition: all .2s ease;
         }
 
         .finance-dashboard .btn:hover {
             transform: translateY(-1px);
-            opacity: 0.95;
+            opacity: .95;
         }
 
         .finance-dashboard .btn-primary {
             background: #11998e;
-            color: #fff;
+            color: #ffffff;
         }
 
         .finance-dashboard .btn-secondary {
@@ -264,6 +260,30 @@
             color: #7c3aed;
         }
 
+        .finance-dashboard .review-label {
+            color: #92400e;
+            font-weight: 700;
+        }
+
+        .finance-dashboard .notice {
+            padding: 16px 18px;
+            border-radius: 16px;
+            margin: 20px 0;
+            line-height: 1.7;
+        }
+
+        .finance-dashboard .notice-info {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+        }
+
+        .finance-dashboard .notice-warning {
+            background: #fffbeb;
+            border: 1px solid #fcd34d;
+            color: #92400e;
+        }
+
         .finance-dashboard .chart-box {
             position: relative;
             width: 100%;
@@ -279,6 +299,11 @@
             display: grid;
             grid-template-columns: 1fr;
             gap: 14px;
+        }
+
+        .finance-dashboard :focus-visible {
+            outline: 3px solid #2563eb;
+            outline-offset: 3px;
         }
 
         @media (max-width: 1200px) {
@@ -328,83 +353,170 @@
         }
     </style>
 
+    @php
+        $pricedBookingCount = max(
+            0,
+            $totalBookings - $rangeExcludedBookingCount
+        );
+    @endphp
+
     <div class="finance-dashboard">
         <div class="card">
             <div class="card-header">
                 <div>
-                    <span class="page-title-badge">ADVANCED FINANCE</span>
-                    <h2>Financial Analytics Dashboard</h2>
+                    <span class="page-title-badge">FINANCE OVERVIEW</span>
+                    <h2>Booking Values and Expenses</h2>
+
                     <p class="muted">
                         From {{ \Carbon\Carbon::parse($startDate)->format('d M Y') }}
                         to {{ \Carbon\Carbon::parse($endDate)->format('d M Y') }}
                     </p>
                 </div>
 
-                <form method="GET" action="{{ route('finance.index') }}" class="filter-form">
-                    <select name="range" onchange="this.form.submit()" class="filter-select">
-                        <option value="today" {{ $filter == 'today' ? 'selected' : '' }}>Today</option>
-                        <option value="this_week" {{ $filter == 'this_week' ? 'selected' : '' }}>This Week</option>
-                        <option value="this_month" {{ $filter == 'this_month' ? 'selected' : '' }}>This Month</option>
-                        <option value="this_year" {{ $filter == 'this_year' ? 'selected' : '' }}>This Year</option>
+                <form method="GET"
+                      action="{{ route('finance.index') }}"
+                      class="filter-form">
+                    <select name="range"
+                            aria-label="Reporting period"
+                            onchange="this.form.submit()"
+                            class="filter-select">
+                        <option value="today" {{ $filter === 'today' ? 'selected' : '' }}>
+                            Today
+                        </option>
+                        <option value="this_week" {{ $filter === 'this_week' ? 'selected' : '' }}>
+                            This Week
+                        </option>
+                        <option value="this_month" {{ $filter === 'this_month' ? 'selected' : '' }}>
+                            This Month
+                        </option>
+                        <option value="this_year" {{ $filter === 'this_year' ? 'selected' : '' }}>
+                            This Year
+                        </option>
                     </select>
                 </form>
             </div>
 
+            <p class="muted">
+                Booking values use the saved agreed nightly rate for confirmed,
+                checked-in and checked-out bookings. The whole stay is assigned
+                to its arrival date. Expenses use their recorded expense dates.
+                These figures do not show cash received or accounting profit.
+            </p>
+
             <div class="actions">
-                <a href="{{ route('expenses.create') }}" class="btn btn-primary">+ Add Expense</a>
-                <a href="{{ route('expenses.index') }}" class="btn btn-secondary">View Expenses</a>
-                <a href="{{ route('bookings.index') }}" class="btn btn-warning">View Bookings</a>
+                <a href="{{ route('expenses.create') }}"
+                   class="btn btn-primary">
+                    + Add Expense
+                </a>
+
+                <a href="{{ route('expenses.index') }}"
+                   class="btn btn-secondary">
+                    View Expenses
+                </a>
+
+                <a href="{{ route('bookings.index') }}"
+                   class="btn btn-warning">
+                    View Bookings
+                </a>
             </div>
         </div>
 
+        @if($excludedBookingCount > 0)
+            <div class="notice notice-warning" role="status">
+                <strong>Some booking values require review.</strong>
+
+                {{ $excludedBookingCount }} qualifying booking(s) across all dates
+                have a missing or invalid agreed rate, or invalid stay dates.
+                Their values are excluded from monetary totals and room rankings.
+
+                {{ $rangeExcludedBookingCount }} of these booking(s) fall within
+                the selected arrival period. Totals may therefore be incomplete.
+            </div>
+        @else
+            <div class="notice notice-info">
+                Monetary totals use saved booking rates.
+                Later changes to current room prices do not change these values.
+            </div>
+        @endif
+
         <div class="grid-3">
             <div class="stats-card bg-teal">
-                <h4>Revenue</h4>
-                <p class="value">৳ {{ number_format($rangeRevenue, 2) }}</p>
-                <div class="trend {{ $revenueGrowth >= 0 ? 'up' : 'down' }}">
-                    {{ $revenueGrowth >= 0 ? '↑' : '↓' }}
-                    {{ number_format(abs($revenueGrowth), 2) }}% vs previous period
+                <h4>Booking Value</h4>
+                <p class="value">
+                    ৳ {{ number_format($rangeRevenue, 2) }}
+                </p>
+                <div class="trend">
+                    Whole-stay values for arrivals in the selected period.
                 </div>
             </div>
 
             <div class="stats-card bg-orange">
-                <h4>Expenses</h4>
-                <p class="value">৳ {{ number_format($rangeExpenses, 2) }}</p>
-                <div class="trend {{ $expenseGrowth <= 0 ? 'up' : 'down' }}">
-                    {{ $expenseGrowth >= 0 ? '↑' : '↓' }}
-                    {{ number_format(abs($expenseGrowth), 2) }}% vs previous period
+                <h4>Recorded Expenses</h4>
+                <p class="value">
+                    ৳ {{ number_format($rangeExpenses, 2) }}
+                </p>
+                <div class="trend">
+                    Expenses dated within the selected period.
                 </div>
             </div>
 
             <div class="stats-card {{ $rangeProfit >= 0 ? 'bg-blue' : 'bg-red' }}">
-                <h4>Profit</h4>
-                <p class="value">৳ {{ number_format($rangeProfit, 2) }}</p>
-                <div class="trend {{ $profitGrowth >= 0 ? 'up' : 'down' }}">
-                    {{ $profitGrowth >= 0 ? '↑' : '↓' }}
-                    {{ number_format(abs($profitGrowth), 2) }}% vs previous period
+                <h4>Booking Value Less Expenses</h4>
+                <p class="value">
+                    ৳ {{ number_format($rangeProfit, 2) }}
+                </p>
+                <div class="trend">
+                    A planning comparison, not accounting profit.
                 </div>
             </div>
         </div>
 
         <div class="grid-4">
             <div class="mini-stat">
-                <h5>Total Bookings</h5>
+                <h5>Qualifying Bookings</h5>
                 <p>{{ $totalBookings }}</p>
+                <small>
+                    Confirmed, checked-in and checked-out arrivals
+                    in the selected period.
+                </small>
             </div>
 
             <div class="mini-stat">
-                <h5>Avg Booking Value</h5>
-                <p>৳ {{ number_format($averageBookingValue, 2) }}</p>
+                <h5>Average Booking Value</h5>
+
+                @if($pricedBookingCount > 0)
+                    <p>৳ {{ number_format($averageBookingValue, 2) }}</p>
+                @else
+                    <p>N/A</p>
+                @endif
+
+                <small>
+                    Based on {{ $pricedBookingCount }} booking(s)
+                    with usable saved rates and stay dates.
+                </small>
             </div>
 
             <div class="mini-stat">
-                <h5>Avg Stay Length</h5>
-                <p>{{ number_format($averageStayLength, 1) }}N</p>
+                <h5>Average Stay Length</h5>
+
+                @if($averageStayLength > 0)
+                    <p>{{ number_format($averageStayLength, 1) }} nights</p>
+                @else
+                    <p>N/A</p>
+                @endif
+
+                <small>
+                    Selected-period bookings with valid stay dates.
+                </small>
             </div>
 
             <div class="mini-stat">
-                <h5>Occupancy Rate</h5>
+                <h5>Scheduled Occupancy Today</h5>
                 <p>{{ number_format($occupancyRate, 2) }}%</p>
+                <small>
+                    Confirmed and checked-in stays scheduled for today,
+                    divided by all rooms. Independent of the period filter.
+                </small>
             </div>
         </div>
 
@@ -413,19 +525,62 @@
                 <div class="card-header">
                     <div>
                         <span class="page-title-badge">CHART</span>
-                        <h2>Revenue vs Expenses</h2>
-                        <p class="muted">Monthly financial performance for the current year.</p>
+                        <h2>Booking Values vs Expenses</h2>
+                        <p class="muted">
+                            Monthly totals for {{ now()->year }}.
+                            Booking values are grouped by arrival month;
+                            expenses by expense month.
+                        </p>
                     </div>
                 </div>
 
                 <div class="chart-box">
                     <canvas
                         id="financeChart"
-                        data-labels='@json($monthlyChartData->pluck("month")->values())'
-                        data-revenue='@json($monthlyChartData->pluck("revenue")->values())'
-                        data-expenses='@json($monthlyChartData->pluck("expenses")->values())'
-                    ></canvas>
+                        aria-label="Monthly booking values and recorded expenses"
+                        role="img"
+                        data-labels="{{ $monthlyChartData->pluck('month')->values()->toJson() }}"
+                        data-revenue="{{ $monthlyChartData->pluck('revenue')->values()->toJson() }}"
+                        data-expenses="{{ $monthlyChartData->pluck('expenses')->values()->toJson() }}"
+                    >
+                        Monthly figures are listed in the table below.
+                    </canvas>
                 </div>
+
+                <p id="chartMessage" class="muted" hidden>
+                    The chart could not load. Use the monthly table below.
+                </p>
+
+                <details style="margin-top:16px;">
+                    <summary class="muted" style="cursor:pointer;">
+                        View monthly figures
+                    </summary>
+
+                    <div class="table-responsive" style="margin-top:12px;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Month</th>
+                                    <th>Booking Value</th>
+                                    <th>Expenses</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($monthlyChartData as $month)
+                                    <tr>
+                                        <td>{{ $month['month'] }}</td>
+                                        <td>
+                                            ৳ {{ number_format($month['revenue'], 2) }}
+                                        </td>
+                                        <td>
+                                            ৳ {{ number_format($month['expenses'], 2) }}
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
             </div>
 
             <div class="card">
@@ -433,7 +588,9 @@
                     <div>
                         <span class="page-title-badge">EXPENSE BREAKDOWN</span>
                         <h2>Expenses by Category</h2>
-                        <p class="muted">See which categories consume the most budget.</p>
+                        <p class="muted">
+                            Recorded expenses in the selected period.
+                        </p>
                     </div>
                 </div>
 
@@ -453,7 +610,9 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="2" class="muted">No category data found.</td>
+                                    <td colspan="2" class="muted">
+                                        No category data found.
+                                    </td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -467,8 +626,11 @@
                 <div class="card-header">
                     <div>
                         <span class="page-title-badge">TOP ROOMS</span>
-                        <h2>Highest Revenue Rooms</h2>
-                        <p class="muted">Best performing rooms in the selected period.</p>
+                        <h2>Highest Booking Value Rooms</h2>
+                        <p class="muted">
+                            Selected arrival period. Only bookings with
+                            usable saved rates and stay dates are included.
+                        </p>
                     </div>
                 </div>
 
@@ -477,8 +639,8 @@
                         <thead>
                             <tr>
                                 <th>Room</th>
-                                <th>Bookings</th>
-                                <th>Revenue</th>
+                                <th>Priced Bookings</th>
+                                <th>Booking Value</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -486,11 +648,15 @@
                                 <tr>
                                     <td>{{ $room['room_number'] }}</td>
                                     <td>{{ $room['bookings'] }}</td>
-                                    <td>৳ {{ number_format($room['revenue'], 2) }}</td>
+                                    <td>
+                                        ৳ {{ number_format($room['revenue'], 2) }}
+                                    </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="3" class="muted">No room revenue data found.</td>
+                                    <td colspan="3" class="muted">
+                                        No priced booking data found.
+                                    </td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -501,9 +667,12 @@
             <div class="card">
                 <div class="card-header">
                     <div>
-                        <span class="page-title-badge">RECENT REVENUE</span>
-                        <h2>Recent Revenue Bookings</h2>
-                        <p class="muted">Latest bookings contributing to revenue.</p>
+                        <span class="page-title-badge">RECENT BOOKINGS</span>
+                        <h2>Recent Qualifying Bookings</h2>
+                        <p class="muted">
+                            Latest created confirmed, checked-in or
+                            checked-out bookings across all dates.
+                        </p>
                     </div>
                 </div>
 
@@ -515,18 +684,45 @@
                                 <th>Guest</th>
                                 <th>Room</th>
                                 <th>Nights</th>
-                                <th>Revenue</th>
+                                <th>Booking Value</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
                         <tbody>
                             @forelse($recentRevenueBookings as $booking)
                                 <tr>
-                                    <td>#{{ $booking->id }}</td>
-                                    <td>{{ $booking->guest->full_name ?? 'N/A' }}</td>
-                                    <td>{{ $booking->room->number ?? 'N/A' }}</td>
-                                    <td>{{ $booking->nights }}</td>
-                                    <td>৳ {{ number_format($booking->calculated_revenue ?? 0, 2) }}</td>
+                                    <td>
+                                        <a href="{{ route('bookings.show', $booking) }}">
+                                            #{{ $booking->id }}
+                                        </a>
+                                    </td>
+
+                                    <td>
+                                        {{ $booking->guest->full_name ?? 'N/A' }}
+                                    </td>
+
+                                    <td>
+                                        {{ $booking->room->number ?? 'N/A' }}
+                                    </td>
+
+                                    <td>
+                                        @if($booking->nights > 0)
+                                            {{ $booking->nights }}
+                                        @else
+                                            Requires review
+                                        @endif
+                                    </td>
+
+                                    <td>
+                                        @if($booking->calculated_revenue !== null)
+                                            ৳ {{ number_format($booking->calculated_revenue, 2) }}
+                                        @else
+                                            <span class="review-label">
+                                                Requires review
+                                            </span>
+                                        @endif
+                                    </td>
+
                                     <td>
                                         <span class="status status-{{ $booking->status }}">
                                             {{ ucwords(str_replace('_', ' ', $booking->status)) }}
@@ -535,7 +731,9 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="muted">No revenue bookings found.</td>
+                                    <td colspan="6" class="muted">
+                                        No qualifying bookings found.
+                                    </td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -550,7 +748,9 @@
                     <div>
                         <span class="page-title-badge">RECENT EXPENSES</span>
                         <h2>Latest Expenses</h2>
-                        <p class="muted">Most recently recorded resort expenses.</p>
+                        <p class="muted">
+                            Latest expense dates across all periods.
+                        </p>
                     </div>
                 </div>
 
@@ -567,12 +767,18 @@
                             @forelse($recentExpenses as $expense)
                                 <tr>
                                     <td>{{ $expense->title }}</td>
-                                    <td>৳ {{ number_format($expense->amount, 2) }}</td>
-                                    <td>{{ \Carbon\Carbon::parse($expense->expense_date)->format('d M Y') }}</td>
+                                    <td>
+                                        ৳ {{ number_format($expense->amount, 2) }}
+                                    </td>
+                                    <td>
+                                        {{ \Carbon\Carbon::parse($expense->expense_date)->format('d M Y') }}
+                                    </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="3" class="muted">No expenses found.</td>
+                                    <td colspan="3" class="muted">
+                                        No expenses found.
+                                    </td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -583,26 +789,35 @@
             <div class="card">
                 <div class="card-header">
                     <div>
-                        <span class="page-title-badge">LIFETIME TOTALS</span>
-                        <h2>Overall Finance</h2>
-                        <p class="muted">All-time financial summary.</p>
+                        <span class="page-title-badge">ALL-DATE TOTALS</span>
+                        <h2>Overall Overview</h2>
+                        <p class="muted">
+                            Includes past and future qualifying bookings.
+                            Independent of the selected period.
+                        </p>
                     </div>
                 </div>
 
                 <div class="summary-stack">
                     <div class="mini-stat">
-                        <h5>Total Revenue</h5>
+                        <h5>Total Booking Value</h5>
                         <p>৳ {{ number_format($totalRevenue, 2) }}</p>
+                        <small>
+                            Excludes bookings with unusable rates or dates.
+                        </small>
                     </div>
 
                     <div class="mini-stat">
-                        <h5>Total Expenses</h5>
+                        <h5>Total Recorded Expenses</h5>
                         <p>৳ {{ number_format($totalExpenses, 2) }}</p>
                     </div>
 
                     <div class="mini-stat">
-                        <h5>Net Profit</h5>
+                        <h5>Booking Value Less Expenses</h5>
                         <p>৳ {{ number_format($netProfit, 2) }}</p>
+                        <small>
+                            This is not a cash balance or accounting profit.
+                        </small>
                     </div>
                 </div>
             </div>
@@ -610,57 +825,79 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <script>
-        const financeChart = document.getElementById('financeChart');
+        (() => {
+            const canvas = document.getElementById('financeChart');
+            const message = document.getElementById('chartMessage');
 
-        if (financeChart) {
-            const chartLabels = JSON.parse(financeChart.dataset.labels || '[]');
-            const chartRevenue = JSON.parse(financeChart.dataset.revenue || '[]');
-            const chartExpenses = JSON.parse(financeChart.dataset.expenses || '[]');
+            if (!canvas) {
+                return;
+            }
 
-            new Chart(financeChart, {
-                type: 'bar',
-                data: {
-                    labels: chartLabels,
-                    datasets: [
-                        {
-                            label: 'Revenue',
-                            data: chartRevenue,
-                            backgroundColor: 'rgba(20, 184, 166, 0.75)',
-                            borderRadius: 8
+            if (typeof Chart === 'undefined') {
+                if (message) {
+                    message.hidden = false;
+                }
+
+                return;
+            }
+
+            try {
+                const labels = JSON.parse(canvas.dataset.labels || '[]');
+                const bookingValues = JSON.parse(canvas.dataset.revenue || '[]');
+                const expenses = JSON.parse(canvas.dataset.expenses || '[]');
+
+                new Chart(canvas, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Booking Value',
+                                data: bookingValues,
+                                backgroundColor: 'rgba(20,184,166,.75)',
+                                borderRadius: 8
+                            },
+                            {
+                                label: 'Recorded Expenses',
+                                data: expenses,
+                                backgroundColor: 'rgba(249,115,22,.75)',
+                                borderRadius: 8
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
                         },
-                        {
-                            label: 'Expenses',
-                            data: chartExpenses,
-                            backgroundColor: 'rgba(249, 115, 22, 0.75)',
-                            borderRadius: 8
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: {
-                        mode: 'index',
-                        intersect: false
-                    },
-                    plugins: {
-                        legend: {
-                            position: 'top'
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                callback: function (value) {
-                                    return '৳ ' + value;
+                        plugins: {
+                            legend: {
+                                position: 'top'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function (value) {
+                                        return '৳ ' + value;
+                                    }
                                 }
                             }
                         }
                     }
+                });
+            } catch (error) {
+                if (message) {
+                    message.hidden = false;
                 }
-            });
-        }
+
+                console.error('Unable to display finance chart.', error);
+            }
+        })();
     </script>
 </x-app-layout>

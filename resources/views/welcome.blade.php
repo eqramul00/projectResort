@@ -4,11 +4,29 @@
     $location = 'McLovin Valley, Rangamati, Bangladesh';
 
     $facebook = 'https://www.facebook.com/profile.php?id=100078951246241';
-    $instagram = 'https://instagram.com/yourpage';
-    $youtube = 'https://youtube.com/@yourchannel';
     $whatsapp = 'https://wa.me/8801700000000';
 
     $logo = asset('images/logo.jpg');
+
+    $heroImage = null;
+
+    foreach (['image/cover.jpg', 'images/cover.jpg'] as $imagePath) {
+        if (is_file(public_path($imagePath))) {
+            $heroImage = asset($imagePath);
+            break;
+        }
+    }
+
+    $featuredRooms = collect($rooms ?? [])->take(6);
+
+    $currentUser = auth()->user();
+    $isGuest = $currentUser && $currentUser->isGuest();
+
+    $isStaff = $currentUser && $currentUser->hasAnyRole([
+        'admin',
+        'manager',
+        'reception',
+    ]);
 @endphp
 
 <!DOCTYPE html>
@@ -16,999 +34,1758 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>McLovin Resort</title>
-    <meta name="description" content="McLovin Resort — luxury comfort, scenic views, and premium stays.">
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>McLovin Resort | A Little Closer to Nature</title>
 
-    <!-- Font Awesome for actual colored social icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <meta
+        name="description"
+        content="Explore rooms at McLovin Resort, plan your stay and manage your reservations through your guest account."
+    >
 
     <style>
-        :root{
-            --bg:#07101f;
-            --bg-2:#0b1830;
-            --panel:#0f1d37;
-            --panel-2:#122445;
-            --panel-3:#091427;
-            --gold:#d4a93e;
-            --gold-2:#f2d57d;
-            --text:#f6f7fb;
-            --muted:#aeb8cb;
-            --line:rgba(255,255,255,.08);
-            --line-gold:rgba(212,169,62,.32);
-            --shadow:0 24px 60px rgba(0,0,0,.35);
-            --max:1280px;
-            --green-soft:rgba(58,165,92,.16);
+        :root {
+            --forest: #173c32;
+            --forest-dark: #102b24;
+            --cream: #f7f5ef;
+            --paper: #ffffff;
+            --ink: #233830;
+            --muted: #627068;
+            --gold: #dfbf7a;
+            --line: #dde3dc;
+            --radius: 22px;
+            --max: 1200px;
         }
 
-        *{box-sizing:border-box}
-        html{scroll-behavior:smooth}
-        body{
-            margin:0;
-            color:var(--text);
-            font-family:'Inter',sans-serif;
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            scroll-padding-top: 100px;
+        }
+
+        body {
+            margin: 0;
+            background: var(--cream);
+            color: var(--ink);
+            font-family: Arial, Helvetica, sans-serif;
+            line-height: 1.6;
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        img {
+            display: block;
+            max-width: 100%;
+        }
+
+        button {
+            font: inherit;
+        }
+
+        button,
+        a {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        h1,
+        h2,
+        h3,
+        p {
+            margin-top: 0;
+        }
+
+        h1,
+        h2,
+        h3 {
+            line-height: 1.12;
+        }
+
+        h1,
+        h2 {
+            font-family: Georgia, 'Times New Roman', serif;
+            font-weight: 400;
+        }
+
+        .container {
+            width: min(var(--max), calc(100% - 48px));
+            margin-inline: auto;
+        }
+
+        .section {
+            padding: 90px 0;
+        }
+
+        .eyebrow {
+            display: block;
+            margin-bottom: 16px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .muted {
+            color: var(--muted);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            min-height: 48px;
+            padding: 12px 22px;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 700;
+            text-align: center;
+            cursor: pointer;
+            transition:
+                background .2s ease,
+                transform .2s ease,
+                box-shadow .2s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-green {
+            background: var(--forest);
+            color: #ffffff;
+        }
+
+        .btn-green:hover {
+            background: var(--forest-dark);
+        }
+
+        .btn-gold {
+            background: var(--gold);
+            color: var(--forest-dark);
+        }
+
+        .btn-gold:hover {
+            background: #edcf92;
+        }
+
+        .btn-outline {
+            border-color: var(--line);
+            background: transparent;
+            color: var(--forest);
+        }
+
+        .btn-white-outline {
+            border-color: rgba(255,255,255,.45);
+            background: rgba(16,43,36,.2);
+            color: #ffffff;
+        }
+
+        .btn-white-outline:hover {
+            background: rgba(255,255,255,.15);
+        }
+
+        .actions {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .skip-link {
+            position: fixed;
+            top: -100px;
+            left: 16px;
+            padding: 12px 18px;
+            background: #ffffff;
+            color: var(--forest);
+            z-index: 1000;
+        }
+
+        .skip-link:focus {
+            top: 12px;
+        }
+
+        :focus-visible {
+            outline: 3px solid #af761f;
+            outline-offset: 4px;
+        }
+
+        /* Header */
+
+        .site-header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(247,245,239,.97);
+            border-bottom: 1px solid var(--line);
+        }
+
+        .nav {
+            min-height: 88px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+        }
+
+        .brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        .brand-logo {
+            width: 46px;
+            height: 46px;
+            object-fit: contain;
+            border-radius: 12px;
+            background: #ffffff;
+        }
+
+        .brand-name {
+            display: block;
+            font-family: Georgia, 'Times New Roman', serif;
+            font-size: 23px;
+            line-height: 1.2;
+        }
+
+        .brand-subtitle {
+            display: block;
+            margin-top: 5px;
+            color: var(--muted);
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .desktop-nav {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            min-height: 44px;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .nav-link:hover {
+            color: #8d641f;
+        }
+
+        .nav-divider {
+            width: 1px;
+            height: 24px;
+            background: var(--line);
+        }
+
+        .logout-form {
+            margin: 0;
+        }
+
+        .logout-button {
+            border: 0;
+            background: none;
+            color: var(--muted);
+            cursor: pointer;
+            padding: 10px 0;
+            font-size: 14px;
+        }
+
+        .mobile-menu {
+            display: none;
+        }
+
+        /* Hero */
+
+        .hero {
+            position: relative;
+            min-height: 690px;
+            min-height: min(790px, 88svh);
+            display: flex;
+            align-items: center;
+            overflow: hidden;
             background:
-                radial-gradient(circle at top left, rgba(212,169,62,.08), transparent 22%),
-                radial-gradient(circle at top right, rgba(255,255,255,.04), transparent 16%),
-                linear-gradient(180deg, #040b16 0%, #081427 42%, #0a1830 100%);
-            overflow-x:hidden;
+                radial-gradient(circle at 80% 20%, #547460, transparent 45%),
+                linear-gradient(120deg, #102b24, #365a45);
+            color: #ffffff;
         }
 
-        a{text-decoration:none;color:inherit}
-        img{display:block;max-width:100%}
-        button,input,textarea,select{font:inherit}
+        .hero-photo {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                90deg,
+                rgba(9,28,22,.86) 0%,
+                rgba(9,28,22,.58) 50%,
+                rgba(9,28,22,.18) 100%
+            );
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            padding: 90px 0 100px;
+        }
+
+        .hero .eyebrow {
+            color: #f0d59f;
+        }
+
+        .hero h1 {
+            max-width: 760px;
+            margin-bottom: 24px;
+            font-size: clamp(48px, 6.7vw, 88px);
+            letter-spacing: -2px;
+            line-height: 1.04;
+        }
+
+        .hero h1 em {
+            color: #efd398;
+            font-weight: 400;
+        }
+
+        .hero-description {
+            max-width: 510px;
+            color: #e3e9e1;
+            font-size: 17px;
+            line-height: 1.85;
+            margin-bottom: 32px;
+        }
+
+        .hero-note {
+            margin: 26px 0 0;
+            color: #d8e3d9;
+            font-size: 13px;
+        }
+
+        .hero-bottom {
+            position: absolute;
+            bottom: 25px;
+            left: 0;
+            right: 0;
+            z-index: 1;
+        }
+
+        .hero-bottom-inner {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            color: #e3e9e1;
+            font-size: 12px;
+            letter-spacing: .5px;
+        }
+
+        /* Intro strip */
+
+        .intro-strip {
+            border-bottom: 1px solid var(--line);
+            background: #eeeee5;
+        }
+
+        .intro-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .intro-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 28px 24px;
+        }
 
-        .container{
-            width:min(var(--max), calc(100% - 32px));
-            margin:auto;
+        .intro-item + .intro-item {
+            border-left: 1px solid #d9dfd5;
         }
 
-        .section{
-            padding:90px 0;
+        .intro-number {
+            color: #7b876e;
+            font-family: Georgia, 'Times New Roman', serif;
+            font-size: 30px;
         }
 
-        /* HEADER */
-        header{
-            position:fixed;
-            top:0;
-            left:0;
-            width:100%;
-            z-index:100;
-            background:rgba(5,12,22,.50);
-            backdrop-filter:blur(14px);
-            border-bottom:1px solid rgba(255,255,255,.05);
+        .intro-item strong {
+            display: block;
+            font-size: 14px;
         }
 
-        .nav{
-            min-height:82px;
-            display:flex;
-            align-items:center;
-            justify-content:space-between;
-            gap:20px;
+        .intro-item small {
+            color: var(--muted);
+            font-size: 12px;
         }
 
-        .brand{
-            display:flex;
-            align-items:center;
-            gap:14px;
+        /* Section headings */
+
+        .section-heading {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 28px;
+            margin-bottom: 34px;
+        }
+
+        .section-heading h2 {
+            margin-bottom: 0;
+            font-size: clamp(34px, 4vw, 52px);
+            letter-spacing: -1px;
+        }
+
+        .section-heading .eyebrow {
+            color: #66784d;
+        }
+
+        .section-description {
+            max-width: 400px;
+            margin-bottom: 0;
+            color: var(--muted);
+            font-size: 15px;
+        }
+
+        /* Room cards */
+
+        .room-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 24px;
+        }
+
+        .room-card {
+            min-width: 0;
+            overflow: hidden;
+            background: var(--paper);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            transition: box-shadow .2s ease, transform .2s ease;
+        }
+
+        .room-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 18px 35px rgba(23,60,50,.08);
+        }
+
+        .room-media {
+            position: relative;
+            aspect-ratio: 4 / 3;
+            overflow: hidden;
+            background: #e1e6dc;
         }
 
-        .logo-wrap{
-            width:56px;
-            height:56px;
-            border-radius:16px;
-            overflow:hidden;
-            background:#fff;
-            border:1px solid var(--line-gold);
-            padding:4px;
-            box-shadow:var(--shadow);
-        }
+        .room-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform .4s ease;
+        }
 
-        .logo-wrap img{
-            width:100%;
-            height:100%;
-            object-fit:contain;
+        .room-card:hover .room-image {
+            transform: scale(1.04);
         }
 
-        .brand-text h2{
-            margin:0;
-            font-size:22px;
-            font-family:'Cormorant Garamond',serif;
-            letter-spacing:.3px;
+        .room-placeholder {
+            height: 100%;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(135deg, #dce4d7, #bccbb6);
+            color: var(--forest);
+            font-family: Georgia, 'Times New Roman', serif;
+            font-size: 23px;
         }
 
-        .brand-text small{
-            display:block;
-            margin-top:4px;
-            color:var(--gold-2);
-            letter-spacing:2px;
-            text-transform:uppercase;
-            font-size:11px;
+        .room-type {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            max-width: calc(100% - 32px);
+            padding: 7px 12px;
+            border-radius: 7px;
+            background: rgba(255,255,255,.94);
+            color: var(--forest);
+            font-size: 11px;
+            font-weight: 700;
         }
-
-        .navlinks{
-            display:flex;
-            gap:8px;
-            flex-wrap:wrap;
+
+        .room-body {
+            padding: 24px;
         }
 
-        .navlinks a{
-            padding:10px 14px;
-            border-radius:999px;
-            color:#d7deea;
-            font-size:14px;
-            transition:.25s ease;
+        .room-number {
+            margin-bottom: 8px;
+            color: var(--muted);
+            font-size: 12px;
         }
 
-        .navlinks a:hover{
-            background:rgba(255,255,255,.08);
-            color:#fff;
+        .room-body h3 {
+            margin-bottom: 18px;
+            font-family: Georgia, 'Times New Roman', serif;
+            font-size: 27px;
+            font-weight: 400;
+            overflow-wrap: anywhere;
         }
 
-        .btn{
-            display:inline-flex;
-            align-items:center;
-            justify-content:center;
-            min-height:48px;
-            padding:12px 20px;
-            border-radius:999px;
-            border:1px solid var(--line);
-            transition:.25s ease;
-            cursor:pointer;
-            font-weight:600;
-        }
-
-        .btn:hover{transform:translateY(-2px)}
-
-        .btn-gold{
-            background:linear-gradient(180deg, var(--gold-2), var(--gold));
-            color:#111;
-            font-weight:700;
-            border-color:rgba(212,169,62,.5);
-            box-shadow:0 14px 28px rgba(212,169,62,.18);
-        }
-
-        .btn-outline{
-            background:rgba(255,255,255,.04);
-            color:#edf2fb;
-            border-color:rgba(255,255,255,.16);
-        }
-
-        .btn[disabled]{
-            opacity:.6;
-            cursor:not-allowed;
-            transform:none;
-        }
-
-        /* HERO */
-        .hero{
-            position:relative;
-            min-height:100vh;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            padding:120px 0 70px;
-            background:
-                linear-gradient(180deg, rgba(2,10,18,.30), rgba(2,10,18,.58)),
-                linear-gradient(90deg, rgba(2,10,18,.34), rgba(2,10,18,.18)),
-                url('{{ asset('image/cover.jpg') }}') center center / cover no-repeat;
-        }
-
-        .hero::before{
-            content:"";
-            position:absolute;
-            inset:0;
-            background:
-                radial-gradient(circle at top left, rgba(212,169,62,.10), transparent 20%),
-                radial-gradient(circle at bottom center, rgba(34,113,64,.22), transparent 30%),
-                linear-gradient(180deg, rgba(7,16,31,.16) 0%, rgba(7,16,31,.52) 100%);
-        }
-
-        .hero-inner{
-            position:relative;
-            z-index:2;
-            width:100%;
-        }
-
-        .hero-topbar{
-            display:flex;
-            justify-content:center;
-            gap:16px;
-            flex-wrap:wrap;
-            margin-bottom:24px;
-        }
-
-        .hero-nav-chip{
-            padding:8px 14px;
-            border-radius:999px;
-            font-size:13px;
-            color:#eef2fb;
-            background:rgba(9,18,35,.34);
-            border:1px solid rgba(255,255,255,.12);
-            backdrop-filter:blur(8px);
-        }
-
-        .hero-copy{
-            text-align:center;
-            max-width:840px;
-            margin:0 auto;
-        }
-
-        .hero-copy h1{
-            margin:0 0 18px;
-            font-size:clamp(54px, 8vw, 96px);
-            line-height:.92;
-            letter-spacing:-1.8px;
-            font-family:'Cormorant Garamond',serif;
-            text-shadow:0 8px 30px rgba(0,0,0,.35);
-        }
-
-        .hero-copy p{
-            margin:0 auto;
-            max-width:700px;
-            color:#e4ebf5;
-            line-height:1.9;
-            font-size:17px;
-            text-shadow:0 4px 18px rgba(0,0,0,.28);
-        }
-
-        .hero-actions{
-            margin-top:28px;
-            display:flex;
-            justify-content:center;
-            gap:14px;
-            flex-wrap:wrap;
-        }
-
-        /* WELCOME SECTION */
-        .welcome-section{
-            padding:90px 0 20px;
-        }
-
-        .welcome-box{
-            display:grid;
-            grid-template-columns:1.05fr .95fr;
-            gap:28px;
-            align-items:center;
-            border-radius:32px;
-            overflow:hidden;
-            border:1px solid rgba(255,255,255,.08);
-            background:linear-gradient(180deg, rgba(18,36,69,.92), rgba(9,20,39,.94));
-            box-shadow:var(--shadow);
-        }
-
-        .welcome-image{
-            min-height:420px;
-            background:
-                linear-gradient(180deg, rgba(5,18,11,.12), rgba(5,18,11,.34)),
-                url('{{ asset('images/cover.jpg') }}') center/cover no-repeat;
-            position:relative;
-        }
-
-        .welcome-image::after{
-            content:"";
-            position:absolute;
-            inset:0;
-            background:
-                linear-gradient(180deg, rgba(6,18,10,.08), rgba(5,10,18,.22)),
-                radial-gradient(circle at top left, rgba(97,212,126,.18), transparent 24%);
+        .room-price {
+            padding-top: 18px;
+            border-top: 1px solid var(--line);
+            margin-bottom: 20px;
         }
-
-        .welcome-content{
-            padding:40px 34px;
-        }
-
-        .welcome-tag{
-            display:inline-block;
-            margin-bottom:14px;
-            padding:8px 14px;
-            border-radius:999px;
-            background:var(--green-soft);
-            border:1px solid rgba(110,212,142,.18);
-            color:#b8efc7;
-            font-size:12px;
-            letter-spacing:1.2px;
-            text-transform:uppercase;
-        }
-
-        .welcome-content h2{
-            margin:0 0 14px;
-            font-family:'Cormorant Garamond',serif;
-            font-size:52px;
-            line-height:1;
+
+        .room-price strong {
+            font-size: 24px;
+            color: var(--forest);
         }
-
-        .welcome-content p{
-            margin:0;
-            color:var(--muted);
-            line-height:1.9;
-            font-size:15px;
+
+        .room-price span {
+            font-size: 12px;
+            color: var(--muted);
         }
 
-        .welcome-features{
-            margin-top:22px;
-            display:grid;
-            grid-template-columns:repeat(2,1fr);
-            gap:12px;
+        .room-body .btn {
+            width: 100%;
         }
 
-        .welcome-feature{
-            padding:14px 16px;
-            border-radius:18px;
-            background:#0a162a;
-            border:1px solid rgba(255,255,255,.08);
-            color:#e8eef8;
-            font-size:14px;
+        .room-unavailable {
+            margin: 0;
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f0f1eb;
+            color: #656e63;
+            border-radius: 10px;
+            font-size: 13px;
         }
 
-        /* SECTION HEAD */
-        .section-head{
-            margin-bottom:30px;
+        .rooms-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+            flex-wrap: wrap;
+            margin-top: 30px;
         }
 
-        .section-head .eyebrow{
-            display:block;
-            color:var(--gold-2);
-            font-size:12px;
-            letter-spacing:1.5px;
-            text-transform:uppercase;
-            margin-bottom:10px;
+        .rooms-footer p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 13px;
+            max-width: 650px;
         }
 
-        .section-head h2{
-            margin:0;
-            font-family:'Cormorant Garamond',serif;
-            font-size:50px;
-            line-height:1.02;
+        .empty-state {
+            padding: 40px;
+            background: #ffffff;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
         }
 
-        .section-head p{
-            margin:14px 0 0;
-            max-width:680px;
-            color:var(--muted);
-            line-height:1.9;
-            font-size:15px;
+        /* About */
+
+        .about {
+            background: #eaece2;
         }
 
-        /* ROOMS */
-        .rooms-card-grid{
-            display:grid;
-            grid-template-columns:repeat(3,1fr);
-            gap:18px;
+        .about-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 70px;
+            align-items: center;
         }
 
-        .room-card{
-            border-radius:24px;
-            overflow:hidden;
-            border:1px solid rgba(255,255,255,.08);
-            background:linear-gradient(180deg, rgba(18,36,69,.92), rgba(9,20,39,.94));
-            box-shadow:var(--shadow);
+        .about-photo {
+            position: relative;
+            aspect-ratio: 5 / 6;
+            max-height: 570px;
+            border-radius: 24px;
+            overflow: hidden;
+            background: linear-gradient(145deg, #789477, #254b3a);
         }
 
-        .room-card-image{
-            height:220px;
-            background-size:cover;
-            background-position:center;
-            position:relative;
+        .about-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
-        .room-card-image::after{
-            content:"";
-            position:absolute;
-            inset:0;
-            background:linear-gradient(180deg, rgba(0,0,0,.04), rgba(0,0,0,.30));
+        .about-caption {
+            position: absolute;
+            bottom: 24px;
+            left: 24px;
+            right: 24px;
+            padding: 18px;
+            background: rgba(247,245,239,.94);
+            border-radius: 12px;
+            font-family: Georgia, 'Times New Roman', serif;
+            font-size: 22px;
         }
 
-        .room-card-body{
-            padding:18px;
+        .about-copy h2 {
+            font-size: clamp(34px, 4vw, 54px);
+            letter-spacing: -1px;
         }
 
-        .room-card-top{
-            display:flex;
-            align-items:center;
-            justify-content:space-between;
-            gap:12px;
-            flex-wrap:wrap;
-            margin-bottom:10px;
+        .about-copy > p {
+            color: #536353;
+            line-height: 1.9;
         }
 
-        .room-pill,
-        .room-price{
-            padding:8px 14px;
-            border-radius:999px;
-            font-size:12px;
-            font-weight:700;
+        .about-list {
+            margin: 26px 0;
+            padding: 0;
+            list-style: none;
         }
 
-        .room-pill{
-            background:rgba(255,255,255,.08);
-            color:#eef2fb;
-            border:1px solid rgba(255,255,255,.10);
+        .about-list li {
+            padding: 16px 0;
+            border-bottom: 1px solid #cdd6c6;
         }
 
-        .room-price{
-            background:linear-gradient(180deg, var(--gold-2), var(--gold));
-            color:#111;
+        .about-list strong {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 15px;
         }
 
-        .room-card h3{
-            margin:0 0 8px;
-            font-size:26px;
-            font-family:'Cormorant Garamond',serif;
+        .about-list span {
+            color: #536353;
+            font-size: 14px;
         }
+
+        /* Booking steps */
 
-        .room-card p{
-            margin:0;
-            color:var(--muted);
-            font-size:14px;
-            line-height:1.8;
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 30px;
         }
 
-        .room-card-footer{
-            margin-top:16px;
-            display:flex;
-            justify-content:space-between;
-            align-items:center;
-            gap:12px;
-            flex-wrap:wrap;
+        .step {
+            padding: 28px;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: #ffffff;
         }
 
-        .room-status{
-            color:var(--gold-2);
-            font-size:14px;
+        .step-number {
+            display: inline-flex;
+            width: 42px;
+            height: 42px;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: #edf0e5;
+            color: var(--forest);
+            margin-bottom: 24px;
+            font-size: 13px;
+            font-weight: 700;
         }
 
-        /* WHY US */
-        .why-grid{
-            display:grid;
-            grid-template-columns:repeat(5,1fr);
-            gap:16px;
+        .step h3 {
+            font-size: 18px;
+            margin-bottom: 12px;
         }
 
-        .why-card{
-            border-radius:24px;
-            overflow:hidden;
-            border:1px solid rgba(255,255,255,.08);
-            background:linear-gradient(180deg, rgba(18,36,69,.92), rgba(9,20,39,.94));
-            box-shadow:var(--shadow);
+        .step p {
+            color: var(--muted);
+            font-size: 14px;
+            margin-bottom: 0;
         }
 
-        .why-card-image{
-            height:180px;
-            background-size:cover;
-            background-position:center;
+        /* Account banner */
+
+        .account-banner {
+            padding: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 30px;
+            border-radius: 24px;
+            background: var(--forest);
+            color: #ffffff;
+            margin-top: 40px;
         }
 
-        .why-card-body{
-            padding:18px;
+        .account-banner h3 {
+            margin-bottom: 10px;
+            font-family: Georgia, 'Times New Roman', serif;
+            font-weight: 400;
+            font-size: 30px;
         }
 
-        .why-card-body h3{
-            margin:0 0 8px;
-            font-size:24px;
-            font-family:'Cormorant Garamond',serif;
+        .account-banner p {
+            margin: 0;
+            color: #d4e0d6;
+            max-width: 560px;
+            font-size: 14px;
         }
 
-        .why-card-body p{
-            margin:0;
-            color:var(--muted);
-            font-size:13px;
-            line-height:1.8;
+        .account-banner .actions {
+            flex-shrink: 0;
         }
+
+        /* Contact */
 
-        /* CONTACT */
-        .contact-box{
-            display:grid;
-            grid-template-columns:1.15fr .85fr;
-            gap:24px;
+        .contact {
+            background: var(--forest-dark);
+            color: #ffffff;
         }
 
-        .contact-panel,
-        .social-panel{
-            padding:28px;
-            border-radius:30px;
-            border:1px solid rgba(255,255,255,.08);
-            background:linear-gradient(180deg, rgba(18,36,69,.92), rgba(9,20,39,.94));
-            box-shadow:var(--shadow);
+        .contact-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 80px;
         }
 
-        .info-grid{
-            display:grid;
-            grid-template-columns:repeat(2,1fr);
-            gap:16px;
+        .contact h2 {
+            font-size: clamp(36px, 4vw, 54px);
+            margin-bottom: 24px;
         }
 
-        .info-card{
-            padding:22px;
-            border-radius:22px;
-            border:1px solid rgba(255,255,255,.08);
-            background:#0a162a;
+        .contact .eyebrow {
+            color: var(--gold);
         }
 
-        .info-card h3{
-            margin:0 0 8px;
-            font-size:16px;
-            color:var(--gold-2);
+        .contact-intro {
+            color: #c5d3c9;
+            max-width: 440px;
         }
 
-        .info-card p,
-        .info-card a{
-            margin:0;
-            color:#dde2ea;
-            line-height:1.8;
-            font-size:14px;
+        .contact-details {
+            margin: 0;
         }
 
-        .social-panel h3{
-            margin:0 0 10px;
-            font-family:'Cormorant Garamond',serif;
-            font-size:36px;
+        .contact-details > div {
+            padding: 20px 0;
+            border-bottom: 1px solid rgba(255,255,255,.15);
         }
 
-        .social-panel p{
-            margin:0 0 18px;
-            color:var(--muted);
-            line-height:1.9;
-            font-size:14px;
+        .contact-details > div:first-child {
+            padding-top: 0;
         }
 
-        .social-links{
-            display:grid;
-            gap:12px;
+        .contact-details dt {
+            margin-bottom: 7px;
+            color: #aebfb2;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
         }
 
-        .social-link{
-            display:flex;
-            justify-content:space-between;
-            align-items:center;
-            gap:12px;
-            padding:14px 16px;
-            border-radius:18px;
-            border:1px solid rgba(255,255,255,.08);
-            background:#0a162a;
-            transition:.25s ease;
-            font-weight:600;
+        .contact-details dd {
+            margin: 0;
+            font-size: 18px;
+            overflow-wrap: anywhere;
         }
 
-        .social-link:hover{
-            transform:translateX(2px);
-            border-color:rgba(212,169,62,.3);
+        .contact-details a:hover {
+            color: var(--gold);
         }
 
-        .social-link i{
-            margin-right:10px;
-            font-size:18px;
+        .contact-social {
+            margin-top: 25px;
+            display: flex;
+            gap: 22px;
+            flex-wrap: wrap;
+            font-size: 14px;
         }
 
-        .social-link.facebook i{ color:#1877f2; }
+        /* Footer and mobile booking button */
 
-        .social-link.instagram i{
-            background:linear-gradient(45deg,#f58529,#dd2a7b,#8134af,#515bd4);
-            -webkit-background-clip:text;
-            -webkit-text-fill-color:transparent;
-            background-clip:text;
+        .site-footer {
+            padding: 30px 0;
+            background: #0c211b;
+            color: #c3d0c6;
         }
 
-        .social-link.youtube i{ color:#ff0000; }
-        .social-link.whatsapp i{ color:#25d366; }
+        .footer-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
 
-        /* FOOTER */
-        footer{
-            padding:42px 0;
-            border-top:1px solid rgba(255,255,255,.05);
+        .footer-inner p {
+            margin: 0;
+            font-size: 12px;
         }
 
-        .footer-wrap{
-            display:flex;
-            justify-content:space-between;
-            align-items:center;
-            gap:18px;
-            flex-wrap:wrap;
+        .footer-links {
+            display: flex;
+            gap: 20px;
+            font-size: 12px;
         }
 
-        .footer-wrap p{
-            margin:0;
-            color:var(--muted);
-            font-size:14px;
+        .mobile-booking {
+            display: none;
         }
+
+        /* Tablet */
 
-        @media(max-width:1150px){
-            .welcome-box,
-            .contact-box{
-                grid-template-columns:1fr;
+        @media (max-width: 1100px) {
+            .desktop-nav {
+                gap: 16px;
             }
 
-            .why-grid{
-                grid-template-columns:repeat(2,1fr);
+            .brand-name {
+                font-size: 21px;
             }
 
-            .rooms-card-grid{
-                grid-template-columns:repeat(2,1fr);
+            .room-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
             }
 
-            .welcome-image{
-                min-height:320px;
+            .about-grid {
+                gap: 40px;
+            }
+
+            .account-banner {
+                align-items: flex-start;
+                flex-direction: column;
             }
         }
 
-        @media(max-width:850px){
-            .section{padding:64px 0}
-
-            .nav{
-                flex-direction:column;
-                align-items:flex-start;
-                padding:12px 0;
-                min-height:auto;
+        @media (max-width: 960px) {
+            .desktop-nav {
+                display: none;
             }
 
-            .navlinks{
-                width:100%;
-                display:grid;
-                grid-template-columns:repeat(2,1fr);
-                gap:10px;
+            .mobile-menu {
+                display: block;
+                position: relative;
             }
 
-            .navlinks a{
-                text-align:center;
-                background:rgba(255,255,255,.04);
-                border:1px solid rgba(255,255,255,.06);
+            .mobile-menu summary {
+                list-style: none;
+                min-height: 46px;
+                min-width: 76px;
+                padding: 10px 14px;
+                border: 1px solid var(--line);
+                border-radius: 10px;
+                font-size: 14px;
+                font-weight: 700;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
             }
 
-            .nav > .btn{width:100%}
-
-            .hero{
-                padding:140px 0 70px;
+            .mobile-menu summary::-webkit-details-marker {
+                display: none;
             }
 
-            .hero-copy h1{
-                font-size:44px;
-                line-height:1.04;
+            .mobile-menu[open] summary {
+                background: var(--forest);
+                color: #ffffff;
             }
 
-            .hero-copy p{
-                font-size:15px;
+            .mobile-links {
+                position: absolute;
+                top: calc(100% + 16px);
+                right: 0;
+                width: min(330px, calc(100vw - 48px));
+                padding: 16px;
+                display: grid;
+                gap: 5px;
+                background: var(--cream);
+                border: 1px solid var(--line);
+                border-radius: 16px;
+                box-shadow: 0 20px 40px rgba(16,43,36,.15);
+                max-height: 70vh;
+                overflow-y: auto;
             }
 
-            .section-head h2{
-                font-size:36px;
+            .mobile-links > a:not(.btn),
+            .mobile-links .logout-button {
+                display: block;
+                width: 100%;
+                padding: 12px;
+                min-height: 46px;
+                text-align: left;
+                color: var(--ink);
+                font-size: 14px;
             }
 
-            .welcome-content h2{
-                font-size:38px;
+            .mobile-links .btn {
+                margin-top: 8px;
             }
 
-            .info-grid{
-                grid-template-columns:1fr;
+            .mobile-links hr {
+                border: 0;
+                border-top: 1px solid var(--line);
+                width: 100%;
             }
 
-            .welcome-features{
-                grid-template-columns:1fr;
+            .hero {
+                min-height: 650px;
+            }
+
+            .about-grid,
+            .contact-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .about-photo {
+                aspect-ratio: 16 / 10;
+                max-height: 420px;
+            }
+
+            .contact-grid {
+                gap: 40px;
+            }
+
+            .steps {
+                gap: 16px;
             }
         }
 
-        @media(max-width:640px){
-            .container{width:calc(100% - 20px)}
+        /* Mobile */
 
-            .navlinks{
-                display:flex;
-                overflow:auto;
-                flex-wrap:nowrap;
-                scrollbar-width:none;
+        @media (max-width: 640px) {
+            html {
+                scroll-padding-top: 86px;
             }
 
-            .navlinks::-webkit-scrollbar{display:none}
-            .navlinks a{flex:0 0 auto;min-width:max-content}
-
-            .hero-copy h1{font-size:34px}
-            .section-head h2{font-size:30px}
-
-            .why-grid,
-            .rooms-card-grid{
-                grid-template-columns:1fr;
+            .container {
+                width: calc(100% - 36px);
             }
 
-            .welcome-content{
-                padding:24px 18px;
+            .section {
+                padding: 60px 0;
             }
 
-            .welcome-image{
-                min-height:240px;
+            .nav {
+                min-height: 76px;
+                gap: 12px;
+            }
+
+            .brand {
+                gap: 9px;
+            }
+
+            .brand-logo {
+                width: 38px;
+                height: 38px;
+            }
+
+            .brand-name {
+                font-size: 20px;
+            }
+
+            .brand-subtitle {
+                font-size: 8px;
+                letter-spacing: 1.3px;
+            }
+
+            .hero {
+                min-height: 610px;
+            }
+
+            .hero::after {
+                background: linear-gradient(
+                    90deg,
+                    rgba(9,28,22,.84),
+                    rgba(9,28,22,.53)
+                );
+            }
+
+            .hero-content {
+                padding: 65px 0 100px;
+            }
+
+            .hero h1 {
+                font-size: clamp(43px, 11vw, 64px);
+                letter-spacing: -1.4px;
+            }
+
+            .hero-description {
+                font-size: 15px;
+                max-width: 350px;
+            }
+
+            .hero-content .actions {
+                align-items: stretch;
+            }
+
+            .hero-content .actions .btn {
+                flex: 1;
+                padding-inline: 15px;
+            }
+
+            .hero-bottom-inner {
+                font-size: 11px;
+            }
+
+            .hero-bottom-inner span:last-child {
+                display: none;
+            }
+
+            .intro-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .intro-item {
+                padding: 18px 0;
+            }
+
+            .intro-item + .intro-item {
+                border-left: 0;
+                border-top: 1px solid #d9dfd5;
+            }
+
+            .section-heading {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 16px;
+            }
+
+            .room-grid,
+            .steps {
+                grid-template-columns: 1fr;
+            }
+
+            .room-body {
+                padding: 22px;
+            }
+
+            .room-media {
+                aspect-ratio: 16 / 11;
+            }
+
+            .about-grid {
+                gap: 30px;
+            }
+
+            .about-caption {
+                bottom: 16px;
+                left: 16px;
+                right: 16px;
+                font-size: 18px;
+                padding: 14px;
+            }
+
+            .account-banner {
+                padding: 28px;
+            }
+
+            .account-banner .actions {
+                width: 100%;
+            }
+
+            .account-banner .btn {
+                flex: 1;
+            }
+
+            .contact-details dd {
+                font-size: 16px;
+            }
+
+            .site-footer {
+                padding-bottom: calc(110px + env(safe-area-inset-bottom));
+            }
+
+            .mobile-booking {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                position: fixed;
+                z-index: 90;
+                left: 12px;
+                right: 12px;
+                bottom: calc(12px + env(safe-area-inset-bottom));
+                padding: 12px 14px;
+                border-radius: 16px;
+                background: var(--cream);
+                border: 1px solid var(--line);
+                box-shadow: 0 8px 35px rgba(0,0,0,.2);
+            }
+
+            .mobile-booking strong {
+                display: block;
+                font-size: 13px;
+            }
+
+            .mobile-booking small {
+                display: block;
+                color: var(--muted);
+                font-size: 11px;
+            }
+
+            .mobile-booking .btn {
+                min-height: 44px;
+                padding: 10px 16px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            html {
+                scroll-behavior: auto;
+            }
+
+            *,
+            *::before,
+            *::after {
+                transition: none !important;
             }
         }
     </style>
 </head>
+
 <body>
+    <a href="#main-content" class="skip-link">Skip to content</a>
 
-<header>
-    <div class="container nav">
-        <a class="brand" href="#top" aria-label="Go to top">
-            <div class="logo-wrap">
-                <img src="{{ $logo }}" alt="McLovin Resort Logo">
-            </div>
-            <div class="brand-text">
-                <h2>McLovin Resort</h2>
-                <small>Luxury Mountain Stay</small>
-            </div>
-        </a>
+    <header class="site-header">
+        <div class="container nav">
+            <a href="{{ route('welcome') }}"
+               class="brand"
+               aria-label="McLovin Resort home">
+                <img
+                    src="{{ $logo }}"
+                    alt=""
+                    width="46"
+                    height="46"
+                    class="brand-logo"
+                >
 
-        <nav class="navlinks" aria-label="Primary navigation">
-            <a href="#top">Home</a>
-            <a href="#welcome">Welcome</a>
-            <a href="#rooms">Rooms</a>
-            <a href="#whyus">Why Us</a>
-            <a href="#contact">Contact</a>
-        </nav>
+                <span>
+                    <span class="brand-name">McLovin Resort</span>
+                    <span class="brand-subtitle">A little closer to nature</span>
+                </span>
+            </a>
 
-        <a href="{{ route('public.book') }}" class="btn btn-gold">Reserve Now</a>
-    </div>
-</header>
+            <nav class="desktop-nav" aria-label="Main navigation">
+                <a href="#rooms" class="nav-link">Our rooms</a>
+                <a href="#about" class="nav-link">The resort</a>
+                <a href="#contact" class="nav-link">Contact</a>
 
-<section class="hero" id="top">
-    <div class="container hero-inner">
-        <div class="hero-topbar">
-            <span class="hero-nav-chip">Luxury</span>
-            <span class="hero-nav-chip">Comfort</span>
-            <span class="hero-nav-chip">Nature</span>
+                <span class="nav-divider" aria-hidden="true"></span>
+
+                @if($isGuest)
+                    <a href="{{ route('guest.dashboard') }}" class="nav-link">
+                        My Bookings
+                    </a>
+
+                    <form method="POST"
+                          action="{{ route('guest.logout') }}"
+                          class="logout-form">
+                        @csrf
+                        <button type="submit" class="logout-button">
+                            Log out
+                        </button>
+                    </form>
+                @elseif($isStaff)
+                    <a href="{{ route('dashboard') }}" class="nav-link">
+                        Staff Dashboard
+                    </a>
+                @elseif(!$currentUser)
+                    <a href="{{ route('guest.login') }}" class="nav-link">
+                        Guest Login
+                    </a>
+                @endif
+
+                <a href="{{ route('public.book') }}" class="btn btn-green">
+                    Book a stay <span aria-hidden="true">↗</span>
+                </a>
+            </nav>
+
+            <details class="mobile-menu" id="mobileMenu">
+                <summary>Menu</summary>
+
+                <nav class="mobile-links" aria-label="Mobile navigation">
+                    <a href="#rooms">Our rooms</a>
+                    <a href="#about">The resort</a>
+                    <a href="#how-it-works">How to book</a>
+                    <a href="#contact">Contact</a>
+
+                    <hr>
+
+                    @if($isGuest)
+                        <a href="{{ route('guest.dashboard') }}">
+                            My Bookings
+                        </a>
+
+                        <form method="POST"
+                              action="{{ route('guest.logout') }}"
+                              class="logout-form">
+                            @csrf
+                            <button type="submit" class="logout-button">
+                                Log out
+                            </button>
+                        </form>
+                    @elseif($isStaff)
+                        <a href="{{ route('dashboard') }}">
+                            Staff Dashboard
+                        </a>
+                    @elseif(!$currentUser)
+                        <a href="{{ route('guest.login') }}">Guest Login</a>
+                        <a href="{{ route('guest.register') }}">Create Account</a>
+                    @endif
+
+                    <a href="{{ route('public.book') }}" class="btn btn-green">
+                        Book a stay
+                    </a>
+                </nav>
+            </details>
         </div>
+    </header>
 
-        <div class="hero-copy">
-            <h1>Luxury Hotels</h1>
-            <p>
-                A refined destination where scenic beauty, peaceful surroundings, and elegant
-                comfort create a truly memorable resort experience.
-            </p>
+    <main id="main-content">
+        <section class="hero" aria-labelledby="hero-title">
+            @if($heroImage)
+                <img
+                    src="{{ $heroImage }}"
+                    alt=""
+                    class="hero-photo"
+                    fetchpriority="high"
+                >
+            @endif
 
-            <div class="hero-actions">
-                <a href="{{ route('public.book') }}" class="btn btn-gold">Book Now</a>
-                <a href="#rooms" class="btn btn-outline">View Rooms</a>
-            </div>
-        </div>
-    </div>
-</section>
+            <div class="container hero-content">
+                <span class="eyebrow">Slow down. Settle in.</span>
 
-<section class="welcome-section" id="welcome">
-    <div class="container">
-        <div class="welcome-box">
-            <div class="welcome-image"></div>
+                <h1 id="hero-title">
+                    A change of scenery.<br>
+                    A little more <em>peace.</em>
+                </h1>
 
-            <div class="welcome-content">
-                <span class="welcome-tag">Welcome to McLovin Resort</span>
-                <h2>A peaceful stay surrounded by greenery</h2>
-                <p>
-                    Welcome to McLovin Resort, where natural beauty, fresh air, and premium comfort come together.
-                    Enjoy a relaxing escape surrounded by green hills, peaceful views, and warm hospitality designed
-                    to make every stay memorable.
+                <p class="hero-description">
+                    Leave the everyday behind. Find your room, plan your
+                    escape, and make time for a quieter kind of stay
+                    at McLovin Resort.
                 </p>
 
-                <div class="welcome-features">
-                    <div class="welcome-feature">Green scenic surroundings</div>
-                    <div class="welcome-feature">Luxury and comfort</div>
-                    <div class="welcome-feature">Quiet relaxing atmosphere</div>
-                    <div class="welcome-feature">Perfect for family and couples</div>
+                <div class="actions">
+                    <a href="{{ route('public.book') }}" class="btn btn-gold">
+                        Plan your stay <span aria-hidden="true">↗</span>
+                    </a>
+
+                    <a href="#rooms" class="btn btn-white-outline">
+                        Explore rooms
+                    </a>
+                </div>
+
+                <p class="hero-note">
+                    Book directly with us. Our team will review and confirm
+                    your reservation.
+                </p>
+            </div>
+
+            <div class="hero-bottom">
+                <div class="container hero-bottom-inner">
+                    <span>McLovin Resort · Bangladesh</span>
+                    <span>Discover your next escape ↓</span>
+                </div>
+            </div>
+        </section>
+
+        <div class="intro-strip">
+            <div class="container intro-grid">
+                <div class="intro-item">
+                    <span class="intro-number" aria-hidden="true">01</span>
+                    <div>
+                        <strong>Find your room</strong>
+                        <small>Explore rooms and nightly prices</small>
+                    </div>
+                </div>
+
+                <div class="intro-item">
+                    <span class="intro-number" aria-hidden="true">02</span>
+                    <div>
+                        <strong>Choose your dates</strong>
+                        <small>Availability checked when you book</small>
+                    </div>
+                </div>
+
+                <div class="intro-item">
+                    <span class="intro-number" aria-hidden="true">03</span>
+                    <div>
+                        <strong>Keep track of your stay</strong>
+                        <small>View account bookings in one place</small>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-</section>
 
-<section class="section" id="rooms">
-    <div class="container">
-        <div class="section-head">
-            <span class="eyebrow">Luxury accommodation</span>
-            <h2>Our rooms</h2>
-            <p>
-                Explore our elegant room options designed for comfort, style, and a peaceful luxury resort experience.
-            </p>
-        </div>
+        <section class="section" id="rooms" aria-labelledby="rooms-title">
+            <div class="container">
+                <div class="section-heading">
+                    <div>
+                        <span class="eyebrow">Your own space to unwind</span>
+                        <h2 id="rooms-title">Find your favourite room.</h2>
+                    </div>
 
-        <div class="rooms-card-grid">
-            @if(isset($rooms) && $rooms->count())
-                @foreach($rooms->take(6) as $room)
-                    <article class="room-card">
-                        <div class="room-card-image" style="background-image:url('@if($room->images->first())/{{ $room->images->first()->image_path }}@else https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1400&q=80 @endif')"></div>
+                    <p class="section-description">
+                        Browse our rooms, then choose your dates.
+                        Availability depends on your selected stay.
+                    </p>
+                </div>
 
-                        <div class="room-card-body">
-                            <div class="room-card-top">
-                                <span class="room-pill">{{ $room->type ?: 'Luxury Room' }}</span>
-                                <span class="room-price">৳ {{ number_format($room->price, 0) }}</span>
-                            </div>
+                @if($featuredRooms->isNotEmpty())
+                    <div class="room-grid">
+                        @foreach($featuredRooms as $room)
+                            @php
+                                $firstImage = $room->images->first();
+                                $roomImage = null;
 
-                            <h3>{{ $room->name }}</h3>
-                            <p>
-                                Room {{ $room->number }} • {{ ucfirst($room->status) }}<br><br>
-                                Elegant comfort, premium details, and a calm atmosphere designed for memorable stays.
-                            </p>
+                                if ($firstImage && $firstImage->image_path) {
+                                    $storedPath = ltrim(
+                                        $firstImage->image_path,
+                                        '/'
+                                    );
 
-                            <div class="room-card-footer">
-                                <div class="room-status">
-                                    {{ strtolower($room->status) === 'available' ? 'Available Now' : ucfirst($room->status) }}
+                                    $roomImage = str_starts_with(
+                                        $storedPath,
+                                        'storage/'
+                                    )
+                                        ? asset($storedPath)
+                                        : asset('storage/' . $storedPath);
+                                }
+
+                                $acceptsBookings = in_array(
+                                    $room->status,
+                                    ['available', 'occupied'],
+                                    true
+                                );
+
+                                $hasPrice = is_numeric($room->price)
+                                    && (float) $room->price >= 0;
+                            @endphp
+
+                            <article class="room-card">
+                                <div class="room-media">
+                                    @if($roomImage)
+                                        <img
+                                            src="{{ $roomImage }}"
+                                            alt="{{ $room->name }}"
+                                            class="room-image"
+                                            loading="lazy"
+                                            decoding="async"
+                                            width="600"
+                                            height="450"
+                                        >
+                                    @else
+                                        <div class="room-placeholder">
+                                            McLovin Resort
+                                        </div>
+                                    @endif
+
+                                    <span class="room-type">
+                                        {{ $room->type ?: 'Guest room' }}
+                                    </span>
                                 </div>
 
-                                @if(strtolower($room->status) === 'available')
-                                    <a href="{{ route('public.book', ['room' => $room->id]) }}" class="btn btn-gold">Reserve</a>
-                                @else
-                                    <button class="btn btn-outline" type="button" disabled>Unavailable</button>
-                                @endif
-                            </div>
-                        </div>
+                                <div class="room-body">
+                                    <p class="room-number">
+                                        Room {{ $room->number }}
+                                    </p>
+
+                                    <h3>{{ $room->name }}</h3>
+
+                                    <div class="room-price">
+                                        @if($hasPrice)
+                                            <strong>
+                                                ৳ {{ number_format((float) $room->price, 2) }}
+                                            </strong>
+                                            <span>/ night</span>
+                                        @else
+                                            <span>Contact us for pricing</span>
+                                        @endif
+                                    </div>
+
+                                    @if($acceptsBookings && $hasPrice)
+                                        <a
+                                            href="{{ route('public.book', ['room' => $room->id]) }}"
+                                            class="btn btn-green"
+                                            aria-label="Choose dates for {{ $room->name }}"
+                                        >
+                                            Choose dates
+                                            <span aria-hidden="true">↗</span>
+                                        </a>
+                                    @else
+                                        <p class="room-unavailable">
+                                            Currently unavailable
+                                        </p>
+                                    @endif
+                                </div>
+                            </article>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="empty-state">
+                        <h3>Our room listings are being updated.</h3>
+                        <p class="muted">
+                            Contact our team for help planning your stay.
+                        </p>
+                        <a href="#contact" class="btn btn-green">
+                            Contact the resort
+                        </a>
+                    </div>
+                @endif
+
+                <div class="rooms-footer">
+                    <p>
+                        Nightly prices shown are current room prices.
+                        Your agreed nightly rate is saved when your
+                        booking is created.
+                    </p>
+
+                    <a href="{{ route('public.book') }}" class="btn btn-outline">
+                        Open booking form <span aria-hidden="true">→</span>
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <section class="section about" id="about" aria-labelledby="about-title">
+            <div class="container about-grid">
+                <div class="about-photo">
+                    @if($heroImage)
+                        <img
+                            src="{{ $heroImage }}"
+                            alt="The surroundings at McLovin Resort"
+                            loading="lazy"
+                            decoding="async"
+                            width="700"
+                            height="840"
+                        >
+                    @endif
+
+                    <div class="about-caption">
+                        A slower pace. A different perspective.
+                    </div>
+                </div>
+
+                <div class="about-copy">
+                    <span class="eyebrow">Welcome to McLovin</span>
+
+                    <h2 id="about-title">
+                        Make a little room<br>for yourself.
+                    </h2>
+
+                    <p>
+                        A good getaway starts with a little breathing space.
+                        Whether you are planning time with family, a trip
+                        together, or a break from your routine, start by
+                        finding a room that suits your stay.
+                    </p>
+
+                    <ul class="about-list">
+                        <li>
+                            <strong>A simple way to plan</strong>
+                            <span>
+                                Choose your room and dates through our
+                                direct booking form.
+                            </span>
+                        </li>
+
+                        <li>
+                            <strong>Your reservation, easy to find</strong>
+                            <span>
+                                Sign in before booking to keep your new
+                                reservations in your guest account.
+                            </span>
+                        </li>
+
+                        <li>
+                            <strong>A team you can contact</strong>
+                            <span>
+                                Ask us about your visit, payment review
+                                or booking details.
+                            </span>
+                        </li>
+                    </ul>
+
+                    <a href="#contact" class="btn btn-green">
+                        Talk to our team <span aria-hidden="true">↗</span>
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <section
+            class="section"
+            id="how-it-works"
+            aria-labelledby="steps-title"
+        >
+            <div class="container">
+                <div class="section-heading">
+                    <div>
+                        <span class="eyebrow">From planning to arriving</span>
+                        <h2 id="steps-title">Your stay starts here.</h2>
+                    </div>
+                    <p class="section-description">
+                        A few clear steps, with your booking status
+                        visible along the way.
+                    </p>
+                </div>
+
+                <div class="steps">
+                    <article class="step">
+                        <span class="step-number">01</span>
+                        <h3>Choose your stay</h3>
+                        <p>
+                            Open the booking form, select your room
+                            and enter your arrival and departure dates.
+                        </p>
                     </article>
-                @endforeach
-            @else
-                <article class="room-card">
-                    <div class="room-card-image" style="background-image:url('https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1400&q=80')"></div>
-                    <div class="room-card-body">
-                        <div class="room-card-top">
-                            <span class="room-pill">Deluxe Room</span>
-                            <span class="room-price">৳ 4,500</span>
-                        </div>
-                        <h3>Deluxe Room</h3>
-                        <p>Elegant comfort with thoughtful details and a warm, peaceful atmosphere.</p>
-                        <div class="room-card-footer">
-                            <div class="room-status">Available Now</div>
-                            <a href="{{ route('public.book') }}" class="btn btn-gold">Reserve</a>
-                        </div>
-                    </div>
-                </article>
 
-                <article class="room-card">
-                    <div class="room-card-image" style="background-image:url('https://images.unsplash.com/photo-1445019980597-93fa8acb246c?auto=format&fit=crop&w=1400&q=80')"></div>
-                    <div class="room-card-body">
-                        <div class="room-card-top">
-                            <span class="room-pill">Premium Room</span>
-                            <span class="room-price">৳ 6,000</span>
-                        </div>
-                        <h3>Premium Room</h3>
-                        <p>More space, refined style, and premium comfort for a memorable resort stay.</p>
-                        <div class="room-card-footer">
-                            <div class="room-status">Available Now</div>
-                            <a href="{{ route('public.book') }}" class="btn btn-gold">Reserve</a>
-                        </div>
-                    </div>
-                </article>
+                    <article class="step">
+                        <span class="step-number">02</span>
+                        <h3>Submit payment details</h3>
+                        <p>
+                            Follow the payment instructions and upload
+                            your receipt. A submission is awaiting review,
+                            not yet a verified payment.
+                        </p>
+                    </article>
 
-                <article class="room-card">
-                    <div class="room-card-image" style="background-image:url('https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=1400&q=80')"></div>
-                    <div class="room-card-body">
-                        <div class="room-card-top">
-                            <span class="room-pill">Hill View Suite</span>
-                            <span class="room-price">৳ 8,500</span>
-                        </div>
-                        <h3>Hill View Suite</h3>
-                        <p>A luxury suite with refined details, scenic atmosphere, and elevated comfort.</p>
-                        <div class="room-card-footer">
-                            <div class="room-status">Available Now</div>
-                            <a href="{{ route('public.book') }}" class="btn btn-gold">Reserve</a>
-                        </div>
-                    </div>
-                </article>
-            @endif
-        </div>
-    </div>
-</section>
-
-<section class="section" id="whyus">
-    <div class="container">
-        <div class="section-head">
-            <span class="eyebrow">Why choose us</span>
-            <h2>Why guests choose McLovin Resort</h2>
-            <p>
-                Experience comfort, peaceful surroundings, and premium hospitality in one refined destination.
-            </p>
-        </div>
-
-        <div class="why-grid">
-            <article class="why-card">
-                <div class="why-card-image" style="background-image:url('https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1200&q=80')"></div>
-                <div class="why-card-body">
-                    <h3>Scenic Beauty</h3>
-                    <p>Beautiful surroundings and refreshing views for a peaceful escape.</p>
+                    <article class="step">
+                        <span class="step-number">03</span>
+                        <h3>Look for confirmation</h3>
+                        <p>
+                            Our team reviews payment and confirms your
+                            reservation. Account guests can check the
+                            status in My Bookings.
+                        </p>
+                    </article>
                 </div>
-            </article>
 
-            <article class="why-card">
-                <div class="why-card-image" style="background-image:url('https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80')"></div>
-                <div class="why-card-body">
-                    <h3>Elegant Rooms</h3>
-                    <p>Designed with warmth, comfort, and premium details.</p>
+                <div class="account-banner">
+                    @if($isGuest)
+                        <div>
+                            <h3>Your next stay, all in one place.</h3>
+                            <p>
+                                View your account bookings and check
+                                their reservation and payment status.
+                            </p>
+                        </div>
+
+                        <a href="{{ route('guest.dashboard') }}"
+                           class="btn btn-gold">
+                            My Bookings <span aria-hidden="true">↗</span>
+                        </a>
+                    @elseif($isStaff)
+                        <div>
+                            <h3>Welcome back to McLovin.</h3>
+                            <p>
+                                Open your staff dashboard to manage
+                                the resort’s day-to-day activity.
+                            </p>
+                        </div>
+
+                        <a href="{{ route('dashboard') }}"
+                           class="btn btn-gold">
+                            Staff Dashboard
+                        </a>
+                    @elseif(!$currentUser)
+                        <div>
+                            <h3>A little less searching next time.</h3>
+                            <p>
+                                Create a guest account, then book while
+                                signed in to keep your new reservations
+                                together.
+                            </p>
+                        </div>
+
+                        <div class="actions">
+                            <a href="{{ route('guest.register') }}"
+                               class="btn btn-gold">
+                                Create Account
+                            </a>
+
+                            <a href="{{ route('guest.login') }}"
+                               class="btn btn-white-outline">
+                                Guest Login
+                            </a>
+                        </div>
+                    @else
+                        <div>
+                            <h3>Let us help plan your stay.</h3>
+                            <p>
+                                Contact our team if you need assistance
+                                with your account or reservation.
+                            </p>
+                        </div>
+
+                        <a href="#contact" class="btn btn-gold">
+                            Contact us
+                        </a>
+                    @endif
                 </div>
-            </article>
+            </div>
+        </section>
 
-            <article class="why-card">
-                <div class="why-card-image" style="background-image:url('https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=1200&q=80')"></div>
-                <div class="why-card-body">
-                    <h3>Peaceful Stay</h3>
-                    <p>A calm and quiet atmosphere away from daily noise.</p>
-                </div>
-            </article>
+        <section
+            class="section contact"
+            id="contact"
+            aria-labelledby="contact-title"
+        >
+            <div class="container contact-grid">
+                <div>
+                    <span class="eyebrow">Let’s plan something good</span>
+                    <h2 id="contact-title">
+                        Your getaway.<br>Our warm welcome.
+                    </h2>
 
-            <article class="why-card">
-                <div class="why-card-image" style="background-image:url('https://images.unsplash.com/photo-1551776235-dde6d4829808?auto=format&fit=crop&w=1200&q=80')"></div>
-                <div class="why-card-body">
-                    <h3>Warm Hospitality</h3>
-                    <p>Friendly service and thoughtful care for every guest.</p>
-                </div>
-            </article>
+                    <p class="contact-intro">
+                        Have a question before booking? Get in touch
+                        for help with room options, your reservation
+                        or planning your visit.
+                    </p>
 
-            <article class="why-card">
-                <div class="why-card-image" style="background-image:url('https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=1200&q=80')"></div>
-                <div class="why-card-body">
-                    <h3>Memorable Moments</h3>
-                    <p>Perfect for family trips, private stays, and special escapes.</p>
-                </div>
-            </article>
-        </div>
-    </div>
-</section>
+                    <div class="actions">
+                        <a href="tel:{{ $phone }}" class="btn btn-gold">
+                            Call the resort
+                        </a>
 
-<section class="section" id="contact">
-    <div class="container">
-        <div class="section-head">
-            <span class="eyebrow">Contact</span>
-            <h2>Plan your visit with us</h2>
-            <p>Reach out for booking inquiries, stay details, or direct support from the resort team.</p>
-        </div>
-
-        <div class="contact-box">
-            <div class="contact-panel">
-                <div class="info-grid">
-                    <div class="info-card">
-                        <h3>📍 Location</h3>
-                        <p>{{ $location }}</p>
+                        <a
+                            href="{{ $whatsapp }}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="btn btn-white-outline"
+                        >
+                            WhatsApp
+                            <span aria-hidden="true">↗</span>
+                        </a>
                     </div>
-                    <div class="info-card">
-                        <h3>📞 Phone</h3>
-                        <p><a href="tel:{{ $phone }}">{{ $phone }}</a></p>
-                    </div>
-                    <div class="info-card">
-                        <h3>✉ Email</h3>
-                        <p><a href="mailto:{{ $email }}">{{ $email }}</a></p>
-                    </div>
-                    <div class="info-card">
-                        <h3>🕒 Support</h3>
-                        <p>Booking support available for all guests.</p>
+                </div>
+
+                <div>
+                    <dl class="contact-details">
+                        <div>
+                            <dt>Find us</dt>
+                            <dd>{{ $location }}</dd>
+                        </div>
+
+                        <div>
+                            <dt>Give us a call</dt>
+                            <dd>
+                                <a href="tel:{{ $phone }}">
+                                    {{ $phone }}
+                                </a>
+                            </dd>
+                        </div>
+
+                        <div>
+                            <dt>Send a message</dt>
+                            <dd>
+                                <a href="mailto:{{ $email }}">
+                                    {{ $email }}
+                                </a>
+                            </dd>
+                        </div>
+                    </dl>
+
+                    <div class="contact-social">
+                        <a
+                            href="{{ $facebook }}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Facebook <span aria-hidden="true">↗</span>
+                        </a>
+
+                        <a href="{{ route('public.book') }}">
+                            Booking form <span aria-hidden="true">↗</span>
+                        </a>
                     </div>
                 </div>
             </div>
+        </section>
+    </main>
 
-            <div class="social-panel">
-                <h3>Follow McLovin Resort</h3>
-                <p>Stay connected with us and explore more updates, moments, and resort experiences.</p>
+    <footer class="site-footer">
+        <div class="container footer-inner">
+            <p>© {{ date('Y') }} McLovin Resort. All rights reserved.</p>
 
-                <div class="social-links">
-                    <a href="{{ $facebook }}" class="social-link facebook" target="_blank">
-                        <span><i class="fab fa-facebook-f"></i> Facebook</span>
-                        <span>↗</span>
-                    </a>
+            <nav class="footer-links" aria-label="Footer navigation">
+                <a href="#rooms">Rooms</a>
+                <a href="#contact">Contact</a>
 
-                    <a href="{{ $instagram }}" class="social-link instagram" target="_blank">
-                        <span><i class="fab fa-instagram"></i> Instagram</span>
-                        <span>↗</span>
-                    </a>
-
-                    <a href="{{ $youtube }}" class="social-link youtube" target="_blank">
-                        <span><i class="fab fa-youtube"></i> YouTube</span>
-                        <span>↗</span>
-                    </a>
-
-                    <a href="{{ $whatsapp }}" class="social-link whatsapp" target="_blank">
-                        <span><i class="fab fa-whatsapp"></i> WhatsApp</span>
-                        <span>↗</span>
-                    </a>
-                </div>
-            </div>
+                @if(!$currentUser)
+                    <a href="{{ route('login') }}">Staff Login</a>
+                @elseif($isStaff)
+                    <a href="{{ route('dashboard') }}">Staff Dashboard</a>
+                @elseif($isGuest)
+                    <a href="{{ route('guest.dashboard') }}">My Bookings</a>
+                @endif
+            </nav>
         </div>
-    </div>
-</section>
+    </footer>
 
-<footer>
-    <div class="container footer-wrap">
-        <p>© {{ date('Y') }} McLovin Resort. Luxury stays in a peaceful setting.</p>
-        <a href="{{ route('public.book') }}" class="btn btn-gold">Reserve Your Stay</a>
-    </div>
-</footer>
+    <div class="mobile-booking" aria-label="Quick booking">
+        <div>
+            <strong>A stay worth slowing down for.</strong>
+            <small>Choose your room and dates</small>
+        </div>
 
+        <a href="{{ route('public.book') }}" class="btn btn-green">
+            Book a stay
+        </a>
+    </div>
+
+    <script>
+        (() => {
+            const menu = document.getElementById('mobileMenu');
+
+            if (!menu) {
+                return;
+            }
+
+            menu.querySelectorAll('a').forEach((link) => {
+                link.addEventListener('click', () => {
+                    menu.open = false;
+                });
+            });
+
+            document.addEventListener('click', (event) => {
+                if (menu.open && !menu.contains(event.target)) {
+                    menu.open = false;
+                }
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && menu.open) {
+                    menu.open = false;
+
+                    const summary = menu.querySelector('summary');
+
+                    if (summary) {
+                        summary.focus();
+                    }
+                }
+            });
+
+            const desktopQuery = window.matchMedia('(min-width: 961px)');
+
+            if (typeof desktopQuery.addEventListener === 'function') {
+                desktopQuery.addEventListener('change', (event) => {
+                    if (event.matches) {
+                        menu.open = false;
+                    }
+                });
+            }
+        })();
+    </script>
 </body>
 </html>
