@@ -1,0 +1,11 @@
+{
+  "data_source": "synthetic",
+  "evaluation": "8 expanding-window tests, 7 days each",
+  "test_days": 56,
+  "model_mae_rooms": 1.7511,
+  "baseline_mae_rooms": 2.2143,
+  "model_mae_percentage_points": 15.9191,
+  "baseline_mae_percentage_points": 20.1299,
+  "model_beats_baseline_on_synthetic_history": true,
+  "limitation": "Synthetic test results do not measure accuracy on real hotel stays."
+}

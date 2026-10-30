@@ -1,0 +1,80 @@
+{
+  "mode": "synthetic",
+  "data_source": "synthetic",
+  "generated_at": "2026-10-30T03:27:42.856206+00:00",
+  "is_real_hotel_forecast": false,
+  "as_of": "2026-10-30",
+  "input_file": "occupancy_history.csv",
+  "training_start": "2024-10-30",
+  "training_end": "2026-10-29",
+  "training_days": 730,
+  "assumptions": [
+    "Development booking history labelled synthetic",
+    "Current room inventory treated as constant throughout history",
+    "Recorded booking dates; historical inventory changes are not reconstructed"
+  ],
+  "model": "RandomForestRegressor",
+  "baseline": "Same weekday last week",
+  "evaluation": {
+    "data_source": "synthetic",
+    "evaluation": "8 expanding-window tests, 7 days each",
+    "test_days": 56,
+    "model_mae_rooms": 1.7511,
+    "baseline_mae_rooms": 2.2143,
+    "model_mae_percentage_points": 15.9191,
+    "baseline_mae_percentage_points": 20.1299,
+    "model_beats_baseline_on_synthetic_history": true,
+    "limitation": "Synthetic test results do not measure accuracy on real hotel stays."
+  },
+  "forecast": [
+    {
+      "date": "2026-10-30",
+      "expected_occupied_rooms": 6.19,
+      "total_rooms": 11,
+      "predicted_occupancy_percent": 56.3,
+      "baseline_occupied_rooms": 9.0
+    },
+    {
+      "date": "2026-10-31",
+      "expected_occupied_rooms": 6.66,
+      "total_rooms": 11,
+      "predicted_occupancy_percent": 60.5,
+      "baseline_occupied_rooms": 7.0
+    },
+    {
+      "date": "2026-11-01",
+      "expected_occupied_rooms": 4.33,
+      "total_rooms": 11,
+      "predicted_occupancy_percent": 39.32,
+      "baseline_occupied_rooms": 4.0
+    },
+    {
+      "date": "2026-11-02",
+      "expected_occupied_rooms": 3.79,
+      "total_rooms": 11,
+      "predicted_occupancy_percent": 34.46,
+      "baseline_occupied_rooms": 0.0
+    },
+    {
+      "date": "2026-11-03",
+      "expected_occupied_rooms": 3.98,
+      "total_rooms": 11,
+      "predicted_occupancy_percent": 36.2,
+      "baseline_occupied_rooms": 0.0
+    },
+    {
+      "date": "2026-11-04",
+      "expected_occupied_rooms": 4.02,
+      "total_rooms": 11,
+      "predicted_occupancy_percent": 36.53,
+      "baseline_occupied_rooms": 0.0
+    },
+    {
+      "date": "2026-11-05",
+      "expected_occupied_rooms": 4.07,
+      "total_rooms": 11,
+      "predicted_occupancy_percent": 36.96,
+      "baseline_occupied_rooms": 0.0
+    }
+  ]
+}

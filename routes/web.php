@@ -9,6 +9,7 @@ use App\Http\Controllers\BookingController;
 use App\Http\Controllers\PublicBookingController;
 use App\Http\Controllers\UserRoleController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\OccupancyForecastController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\ExpenseController;
@@ -42,26 +43,40 @@ Route::post('/logout', [LoginController::class, 'logout'])
 |--------------------------------------------------------------------------
 */
 
-Route::get('/guest/register', [GuestAuthController::class, 'showRegister'])
-    ->name('guest.register');
+Route::get(
+    '/guest/register',
+    [GuestAuthController::class, 'showRegister']
+)->name('guest.register');
 
-Route::post('/guest/register', [GuestAuthController::class, 'register'])
+Route::post(
+    '/guest/register',
+    [GuestAuthController::class, 'register']
+)
     ->middleware('throttle:5,1')
     ->name('guest.register.store');
 
-Route::get('/guest/login', [GuestAuthController::class, 'showLogin'])
-    ->name('guest.login');
+Route::get(
+    '/guest/login',
+    [GuestAuthController::class, 'showLogin']
+)->name('guest.login');
 
-Route::post('/guest/login', [GuestAuthController::class, 'login'])
+Route::post(
+    '/guest/login',
+    [GuestAuthController::class, 'login']
+)
     ->middleware('throttle:5,1')
     ->name('guest.login.attempt');
 
 Route::middleware([GuestOnly::class])->group(function () {
-    Route::get('/guest/dashboard', [GuestAuthController::class, 'dashboard'])
-        ->name('guest.dashboard');
+    Route::get(
+        '/guest/dashboard',
+        [GuestAuthController::class, 'dashboard']
+    )->name('guest.dashboard');
 
-    Route::post('/guest/logout', [GuestAuthController::class, 'logout'])
-        ->name('guest.logout');
+    Route::post(
+        '/guest/logout',
+        [GuestAuthController::class, 'logout']
+    )->name('guest.logout');
 });
 
 /*
@@ -93,8 +108,17 @@ Route::post(
 */
 
 Route::middleware(['auth', StaffOnly::class])->group(function () {
-    Route::get('/dashboard', [DashboardController::class, 'index'])
-        ->name('dashboard');
+    Route::get(
+        '/dashboard',
+        [DashboardController::class, 'index']
+    )->name('dashboard');
+
+    Route::post(
+        '/dashboard/forecast/refresh',
+        [OccupancyForecastController::class, 'refresh']
+    )
+        ->middleware('throttle:2,1')
+        ->name('dashboard.forecast.refresh');
 
     Route::resource('rooms', RoomController::class);
     Route::resource('guests', GuestController::class);
@@ -105,14 +129,20 @@ Route::middleware(['auth', StaffOnly::class])->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    Route::get('/maintenance', [MaintenanceController::class, 'index'])
-        ->name('maintenance.index');
+    Route::get(
+        '/maintenance',
+        [MaintenanceController::class, 'index']
+    )->name('maintenance.index');
 
-    Route::post('/maintenance', [MaintenanceController::class, 'store'])
-        ->name('maintenance.store');
+    Route::post(
+        '/maintenance',
+        [MaintenanceController::class, 'store']
+    )->name('maintenance.store');
 
-    Route::put('/maintenance/{issue}', [MaintenanceController::class, 'update'])
-        ->name('maintenance.update');
+    Route::put(
+        '/maintenance/{issue}',
+        [MaintenanceController::class, 'update']
+    )->name('maintenance.update');
 
     /*
     |--------------------------------------------------------------------------
@@ -120,11 +150,15 @@ Route::middleware(['auth', StaffOnly::class])->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    Route::get('/stays', [StayController::class, 'index'])
-        ->name('stays.index');
+    Route::get(
+        '/stays',
+        [StayController::class, 'index']
+    )->name('stays.index');
 
-    Route::post('/stays/{booking}', [StayController::class, 'update'])
-        ->name('stays.update');
+    Route::post(
+        '/stays/{booking}',
+        [StayController::class, 'update']
+    )->name('stays.update');
 
     /*
     |--------------------------------------------------------------------------
@@ -132,17 +166,25 @@ Route::middleware(['auth', StaffOnly::class])->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    Route::get('/bookings', [BookingController::class, 'index'])
-        ->name('bookings.index');
+    Route::get(
+        '/bookings',
+        [BookingController::class, 'index']
+    )->name('bookings.index');
 
-    Route::get('/bookings/create', [BookingController::class, 'create'])
-        ->name('bookings.create');
+    Route::get(
+        '/bookings/create',
+        [BookingController::class, 'create']
+    )->name('bookings.create');
 
-    Route::post('/bookings', [BookingController::class, 'store'])
-        ->name('bookings.store');
+    Route::post(
+        '/bookings',
+        [BookingController::class, 'store']
+    )->name('bookings.store');
 
-    Route::get('/bookings/{booking}', [BookingController::class, 'show'])
-        ->name('bookings.show');
+    Route::get(
+        '/bookings/{booking}',
+        [BookingController::class, 'show']
+    )->name('bookings.show');
 
     Route::get(
         '/bookings/{booking}/edit',
@@ -184,7 +226,6 @@ Route::middleware(['auth', StaffOnly::class])->group(function () {
         [BookingController::class, 'checkIn']
     )->name('bookings.checkin');
 
-    // Replaces the old BookingController checkout handler.
     Route::post(
         '/bookings/{booking}/checkout',
         [StayController::class, 'checkout']
@@ -201,8 +242,10 @@ Route::middleware(['auth', StaffOnly::class])->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    Route::get('/finance', [FinanceController::class, 'index'])
-        ->name('finance.index');
+    Route::get(
+        '/finance',
+        [FinanceController::class, 'index']
+    )->name('finance.index');
 
     Route::resource('expenses', ExpenseController::class);
 });
@@ -213,20 +256,30 @@ Route::middleware(['auth', StaffOnly::class])->group(function () {
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth', StaffOnly::class, 'admin'])->group(function () {
+Route::middleware([
+    'auth',
+    StaffOnly::class,
+    'admin',
+])->group(function () {
     Route::delete(
         '/bookings/{booking}',
         [AdminBookingDeletionController::class, 'destroy']
     )->name('bookings.destroy');
 
-    Route::get('/users/create', [UserController::class, 'create'])
-        ->name('users.create');
+    Route::get(
+        '/users/create',
+        [UserController::class, 'create']
+    )->name('users.create');
 
-    Route::post('/users', [UserController::class, 'store'])
-        ->name('users.store');
+    Route::post(
+        '/users',
+        [UserController::class, 'store']
+    )->name('users.store');
 
-    Route::get('/users/roles', [UserRoleController::class, 'index'])
-        ->name('users.roles');
+    Route::get(
+        '/users/roles',
+        [UserRoleController::class, 'index']
+    )->name('users.roles');
 
     Route::post(
         '/users/{user}/role',
@@ -238,8 +291,10 @@ Route::middleware(['auth', StaffOnly::class, 'admin'])->group(function () {
         [BookingController::class, 'sendReceipt']
     )->name('bookings.sendReceipt');
 
-    Route::get('/calendar', [BookingController::class, 'calendar'])
-        ->name('bookings.calendar');
+    Route::get(
+        '/calendar',
+        [BookingController::class, 'calendar']
+    )->name('bookings.calendar');
 
     Route::get(
         '/bookings/{booking}/invoice',

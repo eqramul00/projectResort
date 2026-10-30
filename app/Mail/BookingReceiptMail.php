@@ -7,9 +7,8 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Contracts\Queue\ShouldQueue;
 
-class BookingReceiptMail extends Mailable implements ShouldQueue
+class BookingReceiptMail extends Mailable
 {
     use Queueable, SerializesModels;
 

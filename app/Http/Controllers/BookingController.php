@@ -8,6 +8,7 @@ use App\Models\Guest;
 use App\Models\Room;
 use App\Services\BookingAvailability;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -19,34 +20,136 @@ class BookingController extends Controller
     {
         $this->authorize('viewAny', Booking::class);
 
-        $query = Booking::with(['room', 'guest']);
-        $calendarQuery = Booking::with(['room', 'guest'])
-            ->orderBy('check_in');
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'status' => [
+                'nullable',
+                'in:pending,confirmed,checked_in,checked_out,cancelled',
+            ],
+        ]);
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-            $calendarQuery->where('status', $request->status);
+        $query = Booking::with(['room', 'guest']);
+
+        if (!empty($filters['status'])) {
+            $query->where('status', $filters['status']);
         }
 
-        $bookings = $query->latest()->get();
-        $calendarBookings = $calendarQuery->get();
+        $search = trim($filters['search'] ?? '');
+
+        if ($search !== '') {
+            $like = '%' . $search . '%';
+            $bookingId = ltrim($search, '#');
+
+            $query->where(function ($matches) use (
+                $like,
+                $bookingId
+            ) {
+                $matches->whereHas(
+                    'guest',
+                    function ($guest) use ($like) {
+                        $guest->where('full_name', 'like', $like)
+                            ->orWhere('phone', 'like', $like)
+                            ->orWhere('email', 'like', $like);
+                    }
+                )->orWhereHas(
+                    'room',
+                    function ($room) use ($like) {
+                        $room->where('number', 'like', $like)
+                            ->orWhere('name', 'like', $like);
+                    }
+                );
+
+                if (
+                    ctype_digit($bookingId)
+                    && strlen($bookingId) <= 18
+                ) {
+                    $matches->orWhere('id', $bookingId);
+                }
+            });
+        }
+
+        $calendarQuery = clone $query;
+
+        $bookings = $query
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate(20, ['*'], 'page')
+            ->withQueryString();
+
+        $calendarBookings = $calendarQuery
+            ->whereIn('status', [
+                'pending',
+                'confirmed',
+                'checked_in',
+            ])
+            ->where('check_out', '>', today()->toDateString())
+            ->orderBy('check_in')
+            ->orderBy('id')
+            ->paginate(20, ['*'], 'calendar_page')
+            ->withQueryString();
 
         return view(
             'bookings.index',
-            compact('bookings', 'calendarBookings')
+            compact('bookings', 'calendarBookings', 'search')
         );
     }
 
-    public function calendar()
+    public function calendar(Request $request)
     {
         $this->authorize('viewAny', Booking::class);
 
-        $bookings = Booking::with(['room', 'guest'])
-            ->orderBy('check_in')
-            ->get()
-            ->groupBy('check_in');
+        $data = $request->validate([
+            'month' => ['nullable', 'date_format:Y-m'],
+        ]);
 
-        return view('bookings.calendar', compact('bookings'));
+        $selectedMonth = !empty($data['month'])
+            ? $data['month']
+            : now()->format('Y-m');
+
+        $monthStart = CarbonImmutable::parse(
+            $selectedMonth . '-01'
+        )->startOfMonth();
+
+        $nextMonthStart = $monthStart->addMonth();
+
+        $records = Booking::with(['room', 'guest'])
+            ->where(
+                'check_in',
+                '<',
+                $nextMonthStart->toDateString()
+            )
+            ->where(
+                'check_out',
+                '>',
+                $monthStart->toDateString()
+            )
+            ->orderBy('check_in')
+            ->orderBy('id')
+            ->get();
+
+        $bookingCount = $records->count();
+
+        $bookings = $records->groupBy('check_in');
+
+        $monthLabel = $monthStart->format('F Y');
+
+        $previousMonth = $monthStart
+            ->subMonth()
+            ->format('Y-m');
+
+        $nextMonth = $nextMonthStart->format('Y-m');
+
+        $currentMonth = now()->format('Y-m');
+
+        return view('bookings.calendar', compact(
+            'bookings',
+            'bookingCount',
+            'selectedMonth',
+            'monthLabel',
+            'previousMonth',
+            'nextMonth',
+            'currentMonth'
+        ));
     }
 
     public function create()
@@ -85,7 +188,9 @@ class BookingController extends Controller
             $data,
             $availability
         ) {
-            $room = $availability->lockRoom((int) $data['room_id']);
+            $room = $availability->lockRoom(
+                (int) $data['room_id']
+            );
 
             $availability->ensureAvailable(
                 $room,
@@ -158,7 +263,13 @@ class BookingController extends Controller
                 $data,
                 $availability
             ) {
-                if (!in_array($current->status, ['pending', 'confirmed'], true)) {
+                if (
+                    !in_array(
+                        $current->status,
+                        ['pending', 'confirmed'],
+                        true
+                    )
+                ) {
                     $this->bookingError(
                         'Only pending or confirmed bookings can be edited.'
                     );
@@ -173,7 +284,6 @@ class BookingController extends Controller
                     );
                 }
 
-                // Changing a paid booking's guest needs a separate audited flow.
                 if (
                     $current->payment_status !== 'pending'
                     && (int) $data['guest_id'] !== (int) $current->guest_id
@@ -242,7 +352,10 @@ class BookingController extends Controller
 
         $booking->load(['room', 'guest']);
 
-        return view('bookings.manual_payment', compact('booking'));
+        return view(
+            'bookings.manual_payment',
+            compact('booking')
+        );
     }
 
     public function manualPaymentSubmit(
@@ -264,8 +377,16 @@ class BookingController extends Controller
                 'max:99999999.99',
                 'decimal:0,2',
             ],
-            'transaction_id' => ['nullable', 'string', 'max:100'],
-            'payment_description' => ['nullable', 'string', 'max:2000'],
+            'transaction_id' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+            'payment_description' => [
+                'nullable',
+                'string',
+                'max:2000',
+            ],
         ]);
 
         $availability->withLockedBooking(
@@ -310,11 +431,16 @@ class BookingController extends Controller
                     );
                 }
 
-                $current->update(['payment_status' => 'verified']);
+                $current->update([
+                    'payment_status' => 'verified',
+                ]);
             }
         );
 
-        return back()->with('success', 'Payment verified successfully.');
+        return back()->with(
+            'success',
+            'Payment verified successfully.'
+        );
     }
 
     public function rejectPayment(
@@ -332,11 +458,16 @@ class BookingController extends Controller
                     );
                 }
 
-                $current->update(['payment_status' => 'rejected']);
+                $current->update([
+                    'payment_status' => 'rejected',
+                ]);
             }
         );
 
-        return back()->with('success', 'Payment rejected successfully.');
+        return back()->with(
+            'success',
+            'Payment rejected successfully.'
+        );
     }
 
     public function confirm(
@@ -347,7 +478,9 @@ class BookingController extends Controller
 
         $current = $availability->withLockedBooking(
             $booking,
-            function (Booking $current, array $rooms) use ($availability) {
+            function (Booking $current, array $rooms) use (
+                $availability
+            ) {
                 if ($current->status !== 'pending') {
                     $this->bookingError(
                         'Only pending bookings can be confirmed.'
@@ -367,7 +500,9 @@ class BookingController extends Controller
                     $current->id
                 );
 
-                $current->update(['status' => 'confirmed']);
+                $current->update([
+                    'status' => 'confirmed',
+                ]);
 
                 return $current;
             }
@@ -377,13 +512,13 @@ class BookingController extends Controller
 
         try {
             if ($current->guest && $current->guest->email) {
-                Mail::to($current->guest->email)->queue(
+                Mail::to($current->guest->email)->send(
                     new BookingReceiptMail($current)
                 );
 
                 return back()->with(
                     'success',
-                    'Booking confirmed successfully. Receipt email queued.'
+                    'Booking confirmed successfully. Receipt email sent.'
                 );
             }
         } catch (\Throwable $exception) {
@@ -391,11 +526,14 @@ class BookingController extends Controller
 
             return back()->with(
                 'warning',
-                'Booking confirmed, but the receipt email could not be queued.'
+                'Booking confirmed, but the receipt email could not be sent.'
             );
         }
 
-        return back()->with('success', 'Booking confirmed successfully.');
+        return back()->with(
+            'success',
+            'Booking confirmed successfully.'
+        );
     }
 
     public function checkIn(
@@ -406,7 +544,9 @@ class BookingController extends Controller
 
         $availability->withLockedBooking(
             $booking,
-            function (Booking $current, array $rooms) use ($availability) {
+            function (Booking $current, array $rooms) use (
+                $availability
+            ) {
                 if ($current->status !== 'confirmed') {
                     $this->bookingError(
                         'Only confirmed bookings can be checked in.'
@@ -439,12 +579,20 @@ class BookingController extends Controller
                     $current->id
                 );
 
-                $current->update(['status' => 'checked_in']);
-                $room->update(['status' => 'occupied']);
+                $current->update([
+                    'status' => 'checked_in',
+                ]);
+
+                $room->update([
+                    'status' => 'occupied',
+                ]);
             }
         );
 
-        return back()->with('success', 'Guest checked in successfully.');
+        return back()->with(
+            'success',
+            'Guest checked in successfully.'
+        );
     }
 
     public function checkOut(
@@ -462,18 +610,24 @@ class BookingController extends Controller
                     );
                 }
 
-                $current->update(['status' => 'checked_out']);
+                $current->update([
+                    'status' => 'checked_out',
+                ]);
 
                 $room = $rooms[(int) $current->room_id];
 
-                // Do not remove a maintenance flag during checkout.
                 if ($room->status === 'occupied') {
-                    $room->update(['status' => 'available']);
+                    $room->update([
+                        'status' => 'available',
+                    ]);
                 }
             }
         );
 
-        return back()->with('success', 'Guest checked out successfully.');
+        return back()->with(
+            'success',
+            'Guest checked out successfully.'
+        );
     }
 
     public function cancel(
@@ -485,17 +639,28 @@ class BookingController extends Controller
         $availability->withLockedBooking(
             $booking,
             function (Booking $current) {
-                if (!in_array($current->status, ['pending', 'confirmed'], true)) {
+                if (
+                    !in_array(
+                        $current->status,
+                        ['pending', 'confirmed'],
+                        true
+                    )
+                ) {
                     $this->bookingError(
                         'Only pending or confirmed bookings can be cancelled. Use Check Out for a guest who has already checked in.'
                     );
                 }
 
-                $current->update(['status' => 'cancelled']);
+                $current->update([
+                    'status' => 'cancelled',
+                ]);
             }
         );
 
-        return back()->with('success', 'Booking cancelled successfully.');
+        return back()->with(
+            'success',
+            'Booking cancelled successfully.'
+        );
     }
 
     public function invoice(Booking $booking)
@@ -504,7 +669,10 @@ class BookingController extends Controller
 
         $booking->load(['room', 'guest']);
 
-        $pdf = Pdf::loadView('bookings.invoice', compact('booking'));
+        $pdf = Pdf::loadView(
+            'bookings.invoice',
+            compact('booking')
+        );
 
         return $pdf->download(
             'booking-invoice-' . $booking->id . '.pdf'
@@ -518,36 +686,39 @@ class BookingController extends Controller
         $booking->load(['room', 'guest']);
 
         if (!$booking->guest || !$booking->guest->email) {
-            return back()->with('error', 'Guest email not found.');
+            return back()->with(
+                'error',
+                'Guest email not found.'
+            );
         }
 
         try {
-            Mail::to($booking->guest->email)->queue(
+            Mail::to($booking->guest->email)->send(
                 new BookingReceiptMail($booking)
             );
 
             return back()->with(
                 'success',
-                'Booking receipt email queued successfully.'
+                'Booking receipt email sent successfully.'
             );
         } catch (\Throwable $exception) {
             report($exception);
 
             return back()->with(
                 'error',
-                'The booking receipt email could not be queued.'
+                'The booking receipt email could not be sent.'
             );
         }
     }
 
-   private function ensureManager(): void
+    private function ensureManager(): void
     {
-    $user = \Illuminate\Support\Facades\Auth::user();
+        $user = \Illuminate\Support\Facades\Auth::user();
 
-    abort_unless(
-        $user instanceof \App\Models\User
-            && $user->canManageBookings(),
-        403
+        abort_unless(
+            $user instanceof \App\Models\User
+                && $user->canManageBookings(),
+            403
         );
     }
 

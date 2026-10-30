@@ -87,9 +87,23 @@ class PublicBookingController extends Controller
         ];
 
         if (!$isGuestAccount) {
-            $rules['name'] = ['required', 'string', 'max:255'];
-            $rules['phone'] = ['required', 'string', 'max:50'];
-            $rules['email'] = ['required', 'email', 'max:255'];
+            $rules['name'] = [
+                'required',
+                'string',
+                'max:255',
+            ];
+
+            $rules['phone'] = [
+                'required',
+                'string',
+                'max:50',
+            ];
+
+            $rules['email'] = [
+                'required',
+                'email',
+                'max:255',
+            ];
         }
 
         $data = $request->validate($rules);
@@ -145,9 +159,10 @@ class PublicBookingController extends Controller
 
         $booking->load(['room', 'guest']);
 
+        // The booking transaction has committed before email is sent.
         try {
             if ($booking->guest && $booking->guest->email) {
-                Mail::to($booking->guest->email)->queue(
+                Mail::to($booking->guest->email)->send(
                     new BookingReceiptMail($booking)
                 );
             }
@@ -158,7 +173,7 @@ class PublicBookingController extends Controller
                 ->route('public.book.payment', $booking)
                 ->with(
                     'warning',
-                    'Your booking was saved, but the email could not be queued. You can still submit payment details.'
+                    'Your booking was saved, but the email could not be sent. You can still submit payment details.'
                 );
         }
 
@@ -238,7 +253,10 @@ class PublicBookingController extends Controller
                     $validated,
                     $receiptPath
                 ) {
-                    $this->ensureBookingAccess($request, $current);
+                    $this->ensureBookingAccess(
+                        $request,
+                        $current
+                    );
 
                     if (
                         $current->status !== 'pending'

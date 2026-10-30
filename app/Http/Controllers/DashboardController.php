@@ -6,6 +6,7 @@ use App\Models\Booking;
 use App\Models\Guest;
 use App\Models\Room;
 use App\Models\User;
+use App\Services\OccupancyForecastFile;
 
 class DashboardController extends Controller
 {
@@ -36,6 +37,54 @@ class DashboardController extends Controller
 
         $totalUsers = User::count();
 
+        $occupancyForecast = app(OccupancyForecastFile::class)->load();
+
+        if ($occupancyForecast['ready']) {
+            $dates = array_column(
+                $occupancyForecast['days'],
+                'date'
+            );
+
+            $onBooks = Booking::whereIn(
+                'status',
+                ['confirmed', 'checked_in']
+            )
+                ->where('check_in', '<=', $dates[6])
+                ->where('check_out', '>', $dates[0])
+                ->get([
+                    'room_id',
+                    'check_in',
+                    'check_out',
+                ]);
+
+            foreach ($occupancyForecast['days'] as &$day) {
+                $date = $day['date'];
+                $confirmedRoomIds = [];
+
+                foreach ($onBooks as $booking) {
+                    $checkIn = substr(
+                        (string) $booking->check_in,
+                        0,
+                        10
+                    );
+
+                    $checkOut = substr(
+                        (string) $booking->check_out,
+                        0,
+                        10
+                    );
+
+                    if ($checkIn <= $date && $checkOut > $date) {
+                        $confirmedRoomIds[(int) $booking->room_id] = true;
+                    }
+                }
+
+                $day['confirmed_rooms'] = count($confirmedRoomIds);
+            }
+
+            unset($day);
+        }
+
         return view('dashboard', compact(
             'totalRooms',
             'availableRooms',
@@ -50,7 +99,8 @@ class DashboardController extends Controller
             'cancelledBookings',
             'latestBookings',
             'latestGuests',
-            'totalUsers'
+            'totalUsers',
+            'occupancyForecast'
         ));
     }
 }
